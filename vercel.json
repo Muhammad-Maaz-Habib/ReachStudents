@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/purge-trip-locations",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/session-retention",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

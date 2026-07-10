@@ -1,0 +1,4 @@
+external_id,first_name,last_name,date_of_birth,grade,team,allergies,medications,medical_conditions,guardian_name,guardian_email,guardian_phone,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship,emergency_contact_email
+REG-001,Jordan,Lee,2012-03-15,8,Pine Cabin,Peanuts,EpiPen as needed,Asthma,Taylor Lee,taylor@example.com,555-0100,Chris Lee,555-0101,Aunt,chris@example.com
+REG-002,Sam,Patel,2011-07-22,9,Maple Cabin,,,,Priya Patel,priya@example.com,555-0200,,,,
+REG-003,Avery,Chen,2013-01-08,7,Cedar Cabin,Dairy,,,Morgan Chen,morgan@example.com,555-0300,Jordan Chen,555-0301,Parent,

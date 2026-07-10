@@ -1,0 +1,785 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SESSION_ADMIN
+  STAFF
+  NURSE
+  PARENT
+  STUDENT
+}
+
+enum PermissionResource {
+  STUDENTS
+  HEALTH_RECORDS
+  FINANCIALS
+  MESSAGING
+  SCHEDULES
+  FORMS
+  INCIDENTS
+  REPORTS
+  SETTINGS
+}
+
+enum SessionDataRetentionPolicy {
+  NONE
+  ARCHIVE
+  DELETE
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  primaryColor   String @default("#E07A3A")
+  secondaryColor String @default("#2D6A4F")
+  sessionDataRetentionPolicy SessionDataRetentionPolicy @default(NONE)
+  sessionDataRetentionDaysAfterEnd Int @default(90)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions  CampSession[]
+  users     User[]
+  permissions PermissionMatrix[]
+  announcements Announcement[]
+  forms     Form[]
+  chatChannels ChatChannel[]
+  parentThreads ParentThread[]
+  staffResources StaffResource[]
+  emergencyProtocols EmergencyProtocol[]
+  auditLogs          AuditLog[]
+}
+
+model CampSession {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean  @default(true)
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  students     Student[]
+  activities   Activity[]
+  activitySeries ActivitySeries[]
+  announcements Announcement[]
+  chatChannels ChatChannel[]
+  incidentReports IncidentReport[]
+  forms        Form[]
+  staffShifts  StaffShift[]
+  shiftSwaps   ShiftSwapRequest[]
+  tripLocationCheckIns TripLocationCheckIn[]
+
+  @@index([organizationId])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  sessionId String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session   CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  students  Student[]
+  staff     TeamStaffAssignment[]
+  announcements Announcement[]
+  activities Activity[]
+  activitySeries ActivitySeries[]
+  schedules Schedule[]
+  chatChannels ChatChannel[]
+
+  @@index([sessionId])
+}
+
+model User {
+  id             String    @id @default(cuid())
+  organizationId String?
+  email          String    @unique
+  emailVerified  DateTime?
+  name           String?
+  image          String?
+  passwordHash   String?
+  role           UserRole  @default(STAFF)
+  phone          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  accounts       Account[]
+  authSessions   AuthSession[]
+  teamAssignments TeamStaffAssignment[]
+  parentLinks    StudentParent[]
+  checkIns       CheckIn[]       @relation("CheckInStaff")
+  incidents      IncidentReport[] @relation("IncidentReporter")
+  announcements  Announcement[]
+  auditLogs      AuditLog[]
+  staffShifts    StaffShift[]
+  medicationLogs MedicationLog[]
+  announcementReads AnnouncementRead[]
+  chatChannelMembers ChatChannelMember[]
+  chatMessages   ChatMessage[]
+  parentMessages ParentMessage[]
+  wellnessChecks WellnessCheck[] @relation("WellnessChecker")
+  certifications StaffCertification[]
+  reviewedSwaps  ShiftSwapRequest[] @relation("SwapReviewer")
+  requestedSwaps ShiftSwapRequest[] @relation("SwapRequester")
+  tripLocationCheckIns TripLocationCheckIn[]
+
+  @@index([organizationId])
+  @@index([role])
+}
+
+model TeamStaffAssignment {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  isLead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model PermissionMatrix {
+  id             String             @id @default(cuid())
+  organizationId String
+  role           UserRole
+  resource       PermissionResource
+  canView        Boolean            @default(false)
+  canEdit        Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, role, resource])
+  @@index([organizationId])
+}
+
+// --- Auth.js tables ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- Future-stage models (schema foundation) ---
+
+model Student {
+  id        String    @id @default(cuid())
+  sessionId String
+  teamId    String?
+  firstName String
+  lastName  String
+  dateOfBirth DateTime?
+  grade     String?
+  photoUrl  String?
+  externalId String?
+  guardianName  String?
+  guardianEmail String?
+  guardianPhone String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  session           CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  team              Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  emergencyContacts EmergencyContact[]
+  medicalProfile    MedicalProfile?
+  parents           StudentParent[]
+  checkIns          CheckIn[]
+  schedules         Schedule[]
+  wellnessChecks    WellnessCheck[]
+  formSubmissions   FormSubmission[]
+  incidentReports   IncidentReport[] @relation("IncidentStudents")
+  parentThreads     ParentThread[]
+  tripLocationCheckIns TripLocationCheckIn[]
+
+  @@index([sessionId])
+  @@index([teamId])
+  @@unique([sessionId, externalId])
+}
+
+model StudentParent {
+  id        String   @id @default(cuid())
+  studentId String
+  userId    String
+  relationship String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, userId])
+}
+
+model EmergencyContact {
+  id           String  @id @default(cuid())
+  studentId    String
+  name         String
+  relationship String?
+  phone        String
+  email        String?
+  isPrimary    Boolean @default(false)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model MedicalProfile {
+  id                String  @id @default(cuid())
+  studentId         String  @unique
+  allergies         String?
+  medications       String?
+  conditions        String?
+  notes             String? @db.Text
+  confidentialNotes String? @db.Text
+
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  medicationLogs  MedicationLog[]
+  parentThreads   ParentThread[]
+}
+
+model MedicationLog {
+  id               String   @id @default(cuid())
+  medicalProfileId String
+  administeredById String
+  medicationName   String
+  dosage           String?
+  notes            String?
+  administeredAt   DateTime @default(now())
+
+  medicalProfile MedicalProfile @relation(fields: [medicalProfileId], references: [id], onDelete: Cascade)
+  administeredBy User           @relation(fields: [administeredById], references: [id])
+
+  @@index([medicalProfileId, administeredAt])
+}
+
+model Activity {
+  id                   String   @id @default(cuid())
+  sessionId            String
+  seriesId             String?
+  name                 String
+  description          String?
+  location             String?
+  capacity             Int?
+  startTime            DateTime
+  endTime              DateTime
+  color                String?
+  teamId               String?
+  overdueAlertMinutes  Int      @default(15)
+
+  session   CampSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  series    ActivitySeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  team      Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  schedules Schedule[]
+  checkIns  CheckIn[]
+  missingAlertDispatches MissingAlertDispatch[]
+
+  @@index([sessionId, startTime])
+  @@index([seriesId])
+}
+
+model ActivitySeries {
+  id                  String   @id @default(cuid())
+  sessionId           String
+  name                String
+  description         String?
+  location            String?
+  color               String?
+  capacity            Int?
+  teamId              String?
+  recurrenceDays      Int[]    // 0=Sun … 6=Sat
+  startTimeMinutes    Int      // minutes from midnight local
+  durationMinutes     Int      @default(60)
+  rangeStart          DateTime
+  rangeEnd            DateTime
+  overdueAlertMinutes Int      @default(15)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  session    CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  team       Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  activities Activity[]
+
+  @@index([sessionId])
+}
+
+model Schedule {
+  id         String  @id @default(cuid())
+  activityId String
+  studentId  String?
+  teamId     String?
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student  Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  team     Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([studentId])
+  @@index([teamId])
+}
+
+model CheckIn {
+  id            String   @id @default(cuid())
+  studentId     String
+  activityId    String?
+  staffId       String
+  clientEventId String?  @unique
+  checkedInAt   DateTime @default(now())
+  checkedOutAt  DateTime?
+  method        String   @default("tap")
+  syncedOffline Boolean  @default(false)
+
+  student  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  staff    User      @relation("CheckInStaff", fields: [staffId], references: [id])
+
+  @@index([studentId, checkedOutAt])
+  @@index([activityId])
+}
+
+model IncidentReport {
+  id                    String           @id @default(cuid())
+  sessionId             String
+  reportedById          String
+  title                 String
+  description           String           @db.Text
+  actionTaken           String?          @db.Text
+  location              String?
+  severity              IncidentSeverity @default(MEDIUM)
+  status                IncidentStatus   @default(OPEN)
+  sourceParentThreadId  String?
+  sourceParentMessageId String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  session             CampSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reportedBy          User           @relation("IncidentReporter", fields: [reportedById], references: [id])
+  students            Student[]      @relation("IncidentStudents")
+  sourceParentThread  ParentThread?  @relation("IncidentSourceThread", fields: [sourceParentThreadId], references: [id], onDelete: SetNull)
+  sourceParentMessage ParentMessage? @relation("IncidentSourceMessage", fields: [sourceParentMessageId], references: [id], onDelete: SetNull)
+  linkedThreads       ParentThread[] @relation("ThreadIncident")
+
+  @@index([sessionId, createdAt])
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum IncidentStatus {
+  OPEN
+  UNDER_REVIEW
+  CLOSED
+}
+
+model WellnessCheck {
+  id         String   @id @default(cuid())
+  studentId  String
+  staffId    String
+  date       DateTime @default(now())
+  mood       String?
+  energy     String?
+  notes      String?  @db.Text
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staff   User    @relation("WellnessChecker", fields: [staffId], references: [id])
+
+  @@index([studentId, date])
+}
+
+model Form {
+  id             String    @id @default(cuid())
+  organizationId String
+  sessionId      String?
+  title          String
+  type           String
+  description    String?   @db.Text
+  fields         Json
+  deadline       DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      CampSession?     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  submissions  FormSubmission[]
+  reminders    FormReminderDispatch[]
+
+  @@index([organizationId, sessionId])
+}
+
+model FormSubmission {
+  id            String   @id @default(cuid())
+  studentId     String
+  formId        String
+  submittedById String?
+  responses     Json?
+  signatureData Json?
+  signerName    String?
+  signerEmail   String?
+  submittedAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  form    Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, formId])
+  @@index([formId])
+}
+
+model FormReminderDispatch {
+  id           String   @id @default(cuid())
+  formId       String
+  studentId    String
+  channels     String[]
+  dispatchedAt DateTime @default(now())
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, studentId, dispatchedAt])
+}
+
+model Announcement {
+  id             String   @id @default(cuid())
+  organizationId String
+  sessionId      String?
+  teamId         String?
+  senderId       String
+  title          String
+  body           String   @db.Text
+  channels       String[] @default([])
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      CampSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+  reads        AnnouncementRead[]
+
+  @@index([organizationId, createdAt])
+}
+
+enum ChatChannelType {
+  GENERAL
+  TEAM
+}
+
+model ChatChannel {
+  id             String          @id @default(cuid())
+  organizationId String
+  sessionId      String?
+  teamId         String?
+  type           ChatChannelType
+  name           String
+  slug           String          @unique
+  createdAt      DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  session      CampSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  members      ChatChannelMember[]
+  messages     ChatMessage[]
+
+  @@index([organizationId])
+}
+
+model ChatChannelMember {
+  id         String    @id @default(cuid())
+  channelId  String
+  userId     String
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  senderId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender  User        @relation(fields: [senderId], references: [id])
+
+  @@index([channelId, createdAt])
+}
+
+enum ParentThreadStatus {
+  OPEN
+  CLOSED
+}
+
+enum ParentThreadTopic {
+  GENERAL
+  INCIDENT
+  HEALTH
+}
+
+model ParentThread {
+  id               String             @id @default(cuid())
+  organizationId   String
+  studentId        String
+  subject          String?
+  topic            ParentThreadTopic  @default(GENERAL)
+  incidentId       String?
+  medicalProfileId String?
+  status           ParentThreadStatus @default(OPEN)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student        Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  incident       IncidentReport? @relation("ThreadIncident", fields: [incidentId], references: [id], onDelete: SetNull)
+  medicalProfile MedicalProfile? @relation(fields: [medicalProfileId], references: [id], onDelete: SetNull)
+  messages       ParentMessage[]
+  sourcedIncidents IncidentReport[] @relation("IncidentSourceThread")
+
+  @@index([organizationId])
+  @@index([studentId])
+}
+
+model ParentMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String   @db.Text
+  sentVia   String[] @default(["in_app"])
+  createdAt DateTime @default(now())
+
+  thread ParentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User         @relation(fields: [senderId], references: [id])
+  sourcedIncidents IncidentReport[] @relation("IncidentSourceMessage")
+
+  @@index([threadId, createdAt])
+}
+
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+}
+
+model MissingAlertDispatch {
+  id              String   @id @default(cuid())
+  activityId      String
+  escalationLevel String   @default("initial")
+  dispatchedAt    DateTime @default(now())
+  recipientCount  Int
+  channels        String[]
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId, escalationLevel, dispatchedAt])
+}
+
+model StaffShift {
+  id                    String    @id @default(cuid())
+  sessionId             String
+  userId                String
+  date                  DateTime
+  dutyLabel             String
+  roleOnDuty            String?
+  requiredCertification StaffCertificationType?
+  startTime             DateTime?
+  endTime               DateTime?
+  createdAt             DateTime  @default(now())
+
+  session            CampSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  swapsAsRequester   ShiftSwapRequest[]   @relation("RequesterShift")
+  swapsAsTarget      ShiftSwapRequest[]   @relation("TargetShift")
+
+  @@index([sessionId, date])
+  @@index([userId, date])
+}
+
+enum StaffCertificationType {
+  LIFEGUARD
+  FIRST_AID
+  CPR
+  WATERFRONT
+  DRIVER
+  OTHER
+}
+
+model StaffCertification {
+  id        String                 @id @default(cuid())
+  userId    String
+  type      StaffCertificationType
+  label     String?
+  expiresAt DateTime?
+  createdAt DateTime               @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ShiftSwapStatus {
+  PENDING_ACCEPTANCE
+  PENDING_ADMIN
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model ShiftSwapRequest {
+  id                  String          @id @default(cuid())
+  sessionId           String
+  requesterShiftId    String
+  targetShiftId       String
+  requestedById       String
+  status              ShiftSwapStatus @default(PENDING_ACCEPTANCE)
+  coverageIssue       String?
+  requesterAcceptedAt DateTime?
+  targetAcceptedAt    DateTime?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  session        CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  requesterShift StaffShift  @relation("RequesterShift", fields: [requesterShiftId], references: [id], onDelete: Cascade)
+  targetShift    StaffShift  @relation("TargetShift", fields: [targetShiftId], references: [id], onDelete: Cascade)
+  requestedBy    User        @relation("SwapRequester", fields: [requestedById], references: [id])
+  reviewedBy     User?       @relation("SwapReviewer", fields: [reviewedById], references: [id])
+
+  @@index([sessionId, status])
+}
+
+model StaffResource {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?  @db.Text
+  category       String
+  url            String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, category])
+}
+
+enum EmergencyProtocolType {
+  LOST_STUDENT
+  MEDICAL
+  WEATHER
+  LOCKDOWN
+}
+
+model EmergencyProtocol {
+  id             String                @id @default(cuid())
+  organizationId String
+  type           EmergencyProtocolType
+  title          String
+  steps          Json
+  sortOrder      Int                   @default(0)
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+}
+
+model TripLocationCheckIn {
+  id             String   @id @default(cuid())
+  sessionId      String
+  studentId      String
+  recordedById   String
+  tripLabel      String?
+  latitude       Float
+  longitude      Float
+  accuracyMeters Float?
+  note           String?
+  createdAt      DateTime @default(now())
+
+  session    CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recordedBy User        @relation(fields: [recordedById], references: [id])
+
+  @@index([sessionId, createdAt])
+  @@index([studentId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  resource       String
+  action         String
+  targetRecord   String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([resource])
+}
