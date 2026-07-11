@@ -44,7 +44,7 @@
 
 ### Trip location privacy
 - **Parent disclosure** — Activity permission slip (`trip_location_ack` checkbox) documents one-time GPS pings and 24h deletion
-- **Retention** — pings hard-deleted after 24h (not UI-only): purge on API read/write + hourly cron `GET /api/cron/purge-trip-locations` + `npm run cron:purge-trip-locations`
+- **Retention** — pings hard-deleted after 24h (not UI-only): purge on trip-checkin API read/write + daily cron (04:00 UTC) + `npm run cron:purge-trip-locations`
 - Documented in `docs/TRIP_LOCATION_PRIVACY.md`
 
 ---

@@ -220,8 +220,9 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
           </p>
           <p className="text-sm text-muted-foreground">
             <strong>Retention:</strong> pings are hard-deleted after 24 hours
-            (hourly cleanup job + purge on each API call). Only the last 24h
-            appears below.
+            (daily 04:00 UTC cleanup + purge on each trip-checkin API call). Only
+            the last 24h appears below; older rows are hidden even if cron has
+            not run yet.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
