@@ -12,6 +12,9 @@ const credentialsSchema = z.object({
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Required behind Vercel/proxies so Auth.js trusts X-Forwarded-Host.
+  // Also set AUTH_TRUST_HOST=true in Vercel; this makes it explicit in code.
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {

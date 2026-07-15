@@ -27,6 +27,17 @@ cp .env.example .env
 
 Set `AUTH_SECRET` (generate with `openssl rand -base64 32`) and `DATABASE_URL` (see database options below).
 
+### Auth.js (NextAuth v5) — Vercel / production env vars
+
+| Variable | Required? | Notes |
+|----------|-----------|--------|
+| **`AUTH_SECRET`** | **Yes** | Signing secret for JWTs/cookies. This is what the middleware and Auth.js expect. `NEXTAUTH_SECRET` works as a legacy alias, but prefer `AUTH_SECRET`. |
+| **`AUTH_TRUST_HOST`** | Recommended | Set to `true` on Vercel so Auth.js trusts `X-Forwarded-Host`. Also set explicitly in `src/lib/auth.ts` via `trustHost: true`. |
+| `AUTH_URL` | Optional | Canonical site URL (e.g. `https://your-app.vercel.app`). **Do not** leave it set to `http://localhost:3000` in production — that breaks host trust. Prefer omitting it on Vercel so Auth.js auto-detects. |
+| `NEXTAUTH_URL` / `NEXTAUTH_SECRET` | Legacy | v4 names; Auth.js still aliases them, but configure **`AUTH_*`** going forward. |
+
+After login, session cookies on HTTPS are named `__Secure-authjs.session-token`. Middleware must decode with `secureCookie: true` (fixed in `src/middleware.ts`).
+
 ### 3. Database setup
 
 #### Option A — Local development (`prisma dev`)
