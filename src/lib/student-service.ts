@@ -62,10 +62,13 @@ function validatePhones(input: ReturnType<typeof normalizeInput>) {
   };
 }
 
+// Deliberately excludes teamId/session: the CSV import path uses the unchecked
+// (scalar FK) form and adds `teamId` itself, while the manual-add path uses the
+// checked relational form (`session`/`team` connect). Mixing a scalar FK with
+// relation connects in one `data` object is invalid in Prisma.
 function buildStudentFields(
   input: ReturnType<typeof normalizeInput>,
   phones: { guardianPhone: string | null; emergencyContactPhone: string | null },
-  teamId: string | null,
   dob: Date | null,
 ) {
   return {
@@ -77,7 +80,6 @@ function buildStudentFields(
     guardianName: input.guardianName?.trim() || null,
     guardianEmail: input.guardianEmail?.trim() || null,
     guardianPhone: phones.guardianPhone,
-    teamId,
   };
 }
 
@@ -175,7 +177,7 @@ export async function importStudentRecord({
       const student = await prisma.$transaction(async (tx) => {
         const updated = await tx.student.update({
           where: { id: existingByExternal.id },
-          data: buildStudentFields(input, phones, teamId, dob),
+          data: { ...buildStudentFields(input, phones, dob), teamId },
         });
         await upsertMedicalProfile(tx, updated.id, input);
         await upsertEmergencyContact(
@@ -216,7 +218,8 @@ export async function importStudentRecord({
     const created = await tx.student.create({
       data: {
         sessionId,
-        ...buildStudentFields(input, phones, teamId, dob),
+        teamId,
+        ...buildStudentFields(input, phones, dob),
       },
     });
     await upsertMedicalProfile(tx, created.id, input);
@@ -276,7 +279,6 @@ export async function createStudentRecord({
         guardianPhone: guardian.normalized || null,
         emergencyContactPhone: emergency.normalized || null,
       },
-      teamId,
       dob,
     ),
     ...(teamId ? { team: { connect: { id: teamId } } } : {}),
