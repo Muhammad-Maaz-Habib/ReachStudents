@@ -1,18 +1,30 @@
 import { prisma } from "@/lib/prisma";
 import { buildActivityInstances } from "@/lib/schedule/recurrence";
 import type { ActivitySeriesInput } from "@/lib/validations/activity";
+import {
+  nextActivityColor,
+  normalizeActivityColor,
+} from "@/lib/schedule/activity-colors";
 
 export async function createActivitySeries(
   sessionId: string,
   input: ActivitySeriesInput,
 ) {
+  const existingColors = await prisma.activity.findMany({
+    where: { sessionId },
+    select: { color: true },
+  });
+  const color = normalizeActivityColor(
+    input.color ?? nextActivityColor(existingColors.map((row) => row.color)),
+  );
+
   const series = await prisma.activitySeries.create({
     data: {
       sessionId,
       name: input.name,
       description: input.description,
       location: input.location,
-      color: input.color,
+      color,
       capacity: input.capacity,
       teamId: input.teamId || null,
       recurrenceDays: input.recurrenceDays,

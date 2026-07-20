@@ -24,7 +24,7 @@ const DEFAULT_PERMISSIONS: Record<
   [UserRole.STAFF]: {
     [PermissionResource.STUDENTS]: { canView: true, canEdit: false },
     [PermissionResource.MESSAGING]: { canView: true, canEdit: true },
-    [PermissionResource.SCHEDULES]: { canView: true, canEdit: false },
+    [PermissionResource.SCHEDULES]: { canView: true, canEdit: true },
     [PermissionResource.FORMS]: { canView: true, canEdit: false },
     [PermissionResource.INCIDENTS]: { canView: true, canEdit: true },
   },

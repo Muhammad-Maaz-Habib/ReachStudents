@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { StaffCertificationType, UserRole } from "../src/generated/prisma/client";
+import { PermissionResource, StaffCertificationType, UserRole } from "../src/generated/prisma/client";
 import { prisma } from "../src/lib/prisma";
 import { seedDefaultPermissions } from "../src/lib/permissions";
 
@@ -19,15 +19,30 @@ async function main() {
 
   await seedDefaultPermissions(organization.id);
 
+  // Ensure STAFF can edit schedules (Stage 4 intent; older seeds may have canEdit=false)
+  await prisma.permissionMatrix.updateMany({
+    where: {
+      organizationId: organization.id,
+      role: UserRole.STAFF,
+      resource: PermissionResource.SCHEDULES,
+    },
+    data: { canView: true, canEdit: true },
+  });
+
   const session = await prisma.campSession.upsert({
     where: { id: "seed-session-1" },
-    update: {},
+    update: {
+      name: "Session 1 — Summer 2026",
+      startDate: new Date("2026-06-15"),
+      endDate: new Date("2026-08-15"),
+      isActive: true,
+    },
     create: {
       id: "seed-session-1",
       organizationId: organization.id,
-      name: "Session 1 — June 2026",
+      name: "Session 1 — Summer 2026",
       startDate: new Date("2026-06-15"),
-      endDate: new Date("2026-06-28"),
+      endDate: new Date("2026-08-15"),
     },
   });
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ACTIVITY_COLOR_PALETTE, normalizeActivityColor } from "@/lib/schedule/activity-colors";
 
 export type ActivityDistributionSlice = {
   /** Activity id, "general", or "not_checked_in" — used for Who's Here links */
@@ -8,17 +9,7 @@ export type ActivityDistributionSlice = {
   color: string;
 };
 
-/** Brand-aligned palette (avoids grayscale --chart-* tokens for a readable pie). */
-const SLICE_COLORS = [
-  "#E07A3A",
-  "#2D6A4F",
-  "#457B9D",
-  "#C9A227",
-  "#6D597A",
-  "#E76F51",
-  "#264653",
-  "#8AB17D",
-];
+const SLICE_COLORS = [...ACTIVITY_COLOR_PALETTE];
 
 /**
  * Student counts by current open check-in activity for the active session.
@@ -105,7 +96,9 @@ export async function getActivityDistribution(
       key: activityId,
       label: row.label,
       count: row.count,
-      color: row.color ?? SLICE_COLORS[colorIndex % SLICE_COLORS.length],
+      color: row.color
+        ? normalizeActivityColor(row.color)
+        : SLICE_COLORS[colorIndex % SLICE_COLORS.length],
     });
     colorIndex += 1;
   }

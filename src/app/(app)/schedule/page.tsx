@@ -4,6 +4,7 @@ import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
+import { normalizeActivityColor } from "@/lib/schedule/activity-colors";
 import { ScheduleBuilder } from "@/components/schedule/schedule-builder";
 
 export default async function SchedulePage() {
@@ -30,20 +31,25 @@ export default async function SchedulePage() {
     }),
   ]);
 
-  const initialEvents = activities.map((activity) => ({
-    id: activity.id,
-    title: activity.name,
-    start: activity.startTime.toISOString(),
-    end: activity.endTime.toISOString(),
-    backgroundColor: activity.color ?? "#E07A3A",
-    borderColor: activity.color ?? "#E07A3A",
-    extendedProps: {
-      location: activity.location,
-      teamName: activity.team?.name ?? null,
-      overdueAlertMinutes: activity.overdueAlertMinutes,
-      seriesId: activity.seriesId,
-    },
-  }));
+  const initialEvents = activities.map((activity, index) => {
+    const color = normalizeActivityColor(activity.color, index);
+    return {
+      id: activity.id,
+      title: activity.name,
+      start: activity.startTime.toISOString(),
+      end: activity.endTime.toISOString(),
+      backgroundColor: color,
+      borderColor: color,
+      textColor: "#ffffff",
+      extendedProps: {
+        location: activity.location,
+        teamName: activity.team?.name ?? null,
+        overdueAlertMinutes: activity.overdueAlertMinutes,
+        seriesId: activity.seriesId,
+        color,
+      },
+    };
+  });
 
   return (
     <ScheduleBuilder

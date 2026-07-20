@@ -6,6 +6,10 @@ import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { activityFormSchema } from "@/lib/validations/activity";
 import { assignTeamToActivity } from "@/lib/schedule/activities";
+import {
+  nextActivityColor,
+  normalizeActivityColor,
+} from "@/lib/schedule/activity-colors";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -77,6 +81,15 @@ export async function POST(request: Request) {
   const campSession = await requireOrganizationSession(session.user.organizationId);
   const data = parsed.data;
 
+  const existingColors = await prisma.activity.findMany({
+    where: { sessionId: campSession.id },
+    select: { color: true },
+  });
+
+  const color = normalizeActivityColor(
+    data.color ?? nextActivityColor(existingColors.map((row) => row.color)),
+  );
+
   const activity = await prisma.activity.create({
     data: {
       sessionId: campSession.id,
@@ -84,7 +97,7 @@ export async function POST(request: Request) {
       description: data.description,
       location: data.location,
       capacity: data.capacity ? Number(data.capacity) : null,
-      color: data.color,
+      color,
       teamId: data.teamId || null,
       startTime: new Date(data.startTime),
       endTime: new Date(data.endTime),

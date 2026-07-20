@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOrganizationSession } from "@/lib/org";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
+import { normalizeActivityColor } from "@/lib/schedule/activity-colors";
 
 type RouteContext = { params: Promise<{ activityId: string }> };
 
@@ -45,6 +46,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         : {}),
       ...(body.name ? { name: body.name } : {}),
       ...(body.location !== undefined ? { location: body.location } : {}),
+      ...(body.color !== undefined
+        ? { color: normalizeActivityColor(body.color) }
+        : {}),
     },
   });
 

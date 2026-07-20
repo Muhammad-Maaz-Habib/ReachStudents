@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Repeat } from "lucide-react";
@@ -23,6 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  ACTIVITY_COLOR_PALETTE,
+  nextActivityColor,
+  normalizeActivityColor,
+} from "@/lib/schedule/activity-colors";
 
 const DAY_LABELS = [
   { value: 0, label: "Sun" },
@@ -42,6 +47,7 @@ type RecurringSeriesDialogProps = {
   sessionStart: string;
   sessionEnd: string;
   teams: TeamOption[];
+  existingColors?: (string | null | undefined)[];
 };
 
 function timeToMinutes(time: string) {
@@ -55,11 +61,27 @@ export function RecurringSeriesDialog({
   sessionStart,
   sessionEnd,
   teams,
+  existingColors = [],
 }: RecurringSeriesDialogProps) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]);
   const [teamId, setTeamId] = useState<string>("");
+  const [color, setColor] = useState(() =>
+    nextActivityColor(existingColors),
+  );
+
+  const existingColorsKey = existingColors
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase())
+    .join(",");
+
+  useEffect(() => {
+    if (open) {
+      setColor(nextActivityColor(existingColorsKey ? existingColorsKey.split(",") : []));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-pick when dialog opens or palette usage changes
+  }, [open, existingColorsKey]);
 
   function toggleDay(day: number) {
     setSelectedDays((current) =>
@@ -82,7 +104,7 @@ export function RecurringSeriesDialog({
     const payload = {
       name: String(formData.get("name") ?? ""),
       location: String(formData.get("location") ?? ""),
-      color: "#457B9D",
+      color: normalizeActivityColor(color),
       teamId: teamId || undefined,
       recurrenceDays: selectedDays,
       startTimeMinutes: timeToMinutes(String(formData.get("startTime") ?? "14:00")),
@@ -217,6 +239,31 @@ export function RecurringSeriesDialog({
             </div>
           </div>
           <div className="space-y-2">
+            <Label>Color</Label>
+            <div className="flex flex-wrap gap-2" role="listbox" aria-label="Series color">
+              {ACTIVITY_COLOR_PALETTE.map((swatch) => {
+                const selected = color.toUpperCase() === swatch.toUpperCase();
+                return (
+                  <button
+                    key={swatch}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className={cn(
+                      "size-9 rounded-full border-2 transition-transform",
+                      selected
+                        ? "scale-110 border-foreground"
+                        : "border-transparent hover:scale-105",
+                    )}
+                    style={{ backgroundColor: swatch }}
+                    onClick={() => setColor(swatch)}
+                    aria-label={`Color ${swatch}`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="series-team">Team (optional)</Label>
             <Select
               value={teamId || undefined}
@@ -262,11 +309,13 @@ export function RecurringSeriesTrigger({
   sessionStart,
   sessionEnd,
   teams,
+  existingColors = [],
   disabled,
 }: {
   sessionStart: string;
   sessionEnd: string;
   teams: TeamOption[];
+  existingColors?: (string | null | undefined)[];
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -289,6 +338,7 @@ export function RecurringSeriesTrigger({
         sessionStart={sessionStart}
         sessionEnd={sessionEnd}
         teams={teams}
+        existingColors={existingColors}
       />
     </>
   );
