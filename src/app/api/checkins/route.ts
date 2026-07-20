@@ -8,6 +8,10 @@ import {
   getOpenCheckInsForSession,
   performOnlineCheckIn,
 } from "@/lib/checkin/server";
+import {
+  canCheckInStudent,
+  studentCheckInWhere,
+} from "@/lib/staff/team-access";
 import { z } from "zod";
 
 const checkInActionSchema = z.object({
@@ -35,9 +39,14 @@ export async function GET() {
   }
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
+  const studentWhere = await studentCheckInWhere(
+    session.user.id,
+    session.user.role,
+    campSession.id,
+  );
   const [students, openCheckIns] = await Promise.all([
     prisma.student.findMany({
-      where: { sessionId: campSession.id },
+      where: studentWhere,
       select: {
         id: true,
         firstName: true,
@@ -70,16 +79,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const allowed = await hasPermission(
-    session.user.organizationId,
-    session.user.role,
-    PermissionResource.STUDENTS,
-    "edit",
-  );
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body = await request.json();
   const parsed = checkInActionSchema.safeParse(body);
   if (!parsed.success) {
@@ -87,6 +86,16 @@ export async function POST(request: Request) {
       { error: "Invalid input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  const canCheckIn = await canCheckInStudent(
+    session.user.id,
+    session.user.role,
+    session.user.organizationId,
+    parsed.data.studentId,
+  );
+  if (!canCheckIn) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const campSession = await requireOrganizationSession(session.user.organizationId);

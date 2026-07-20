@@ -22,6 +22,7 @@ import { buttonVariants } from "@/components/ui/button";
 type CheckInRow = {
   id: string;
   checkedInAt: string;
+  notCheckedIn?: boolean;
   student: {
     id: string;
     firstName: string;
@@ -77,11 +78,14 @@ export function WhosHereList({
   const displayed = previewLimit ? checkIns.slice(0, previewLimit) : checkIns;
 
   const subtitle = useMemo(() => {
+    if (initialActivityId === "not_checked_in") {
+      return `${total} not checked in · ${sessionName}`;
+    }
     if (previewLimit && total > previewLimit) {
       return `Showing ${previewLimit} of ${total} checked in`;
     }
     return `${total} checked in · ${sessionName}`;
-  }, [previewLimit, total, sessionName]);
+  }, [previewLimit, total, sessionName, initialActivityId]);
 
   function updateFilters(updates: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -179,6 +183,7 @@ export function WhosHereList({
             <SelectContent>
               <SelectItem value="all">All check-in types</SelectItem>
               <SelectItem value="general">General campus only</SelectItem>
+              <SelectItem value="not_checked_in">Not checked in</SelectItem>
               {activities.map((activity) => (
                 <SelectItem key={activity.id} value={activity.id}>
                   {activity.name}
@@ -220,16 +225,22 @@ export function WhosHereList({
                 <MedicalFlagBadge student={checkIn.student} />
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>
-                  In since {new Date(checkIn.checkedInAt).toLocaleTimeString()}
-                </span>
-                <span>·</span>
-                <span>
-                  {checkIn.activity?.name ?? "General campus"}
-                  {checkIn.activity?.location
-                    ? ` @ ${checkIn.activity.location}`
-                    : ""}
-                </span>
+                {checkIn.notCheckedIn ? (
+                  <span>Not checked in</span>
+                ) : (
+                  <>
+                    <span>
+                      In since {new Date(checkIn.checkedInAt).toLocaleTimeString()}
+                    </span>
+                    <span>·</span>
+                    <span>
+                      {checkIn.activity?.name ?? "General campus"}
+                      {checkIn.activity?.location
+                        ? ` @ ${checkIn.activity.location}`
+                        : ""}
+                    </span>
+                  </>
+                )}
               </div>
             </li>
           ))}

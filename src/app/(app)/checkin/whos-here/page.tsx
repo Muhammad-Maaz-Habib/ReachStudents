@@ -69,6 +69,7 @@ async function WhosHereContent({
       checkIns={data.checkIns.map((checkIn) => ({
         ...checkIn,
         checkedInAt: checkIn.checkedInAt.toISOString(),
+        notCheckedIn: checkIn.notCheckedIn ?? false,
       }))}
       teams={data.teams}
       activities={data.activities.map((activity) => ({

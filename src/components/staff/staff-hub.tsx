@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/design-system/status-badge";
 import { CertificationAlertsPanel } from "@/components/staff/certification-alerts-panel";
+import { StaffTeamEditor } from "@/components/staff/staff-team-editor";
 import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "directory" | "swaps" | "resources";
@@ -38,12 +39,15 @@ type StaffMember = {
   phone: string | null;
   role: string;
   teams: string[];
+  teamIds: string[];
   certifications: {
     type: string;
     label: string | null;
     expiresAt: string | null;
   }[];
 };
+
+type TeamOption = { id: string; name: string; color: string | null };
 
 type Swap = {
   id: string;
@@ -73,6 +77,7 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
   const [tab, setTab] = useState<Tab>("roster");
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [availableTeams, setAvailableTeams] = useState<TeamOption[]>([]);
   const [swaps, setSwaps] = useState<Swap[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [myShiftId, setMyShiftId] = useState("");
@@ -93,7 +98,15 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
     ]);
     if (dirRes.ok) {
       const data = await dirRes.json();
-      setStaff(data.staff ?? []);
+      setStaff(
+        (data.staff ?? []).map(
+          (member: StaffMember & { teamIds?: string[] }) => ({
+            ...member,
+            teamIds: member.teamIds ?? [],
+          }),
+        ),
+      );
+      setAvailableTeams(data.teams ?? []);
     }
     if (swapRes.ok) {
       const data = await swapRes.json();
@@ -222,13 +235,35 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
           {staff.map((member) => (
             <Card key={member.id} className="rounded-2xl">
               <CardContent className="space-y-2 pt-6">
-                <div className="flex items-center gap-2">
-                  <UserCog className="size-4 text-muted-foreground" aria-hidden />
-                  <p className="font-semibold">{member.name ?? member.email}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="size-4 text-muted-foreground" aria-hidden />
+                    <p className="font-semibold">{member.name ?? member.email}</p>
+                  </div>
+                  {canManage && (
+                    <StaffTeamEditor
+                      staffId={member.id}
+                      staffName={member.name ?? member.email}
+                      initialTeamIds={member.teamIds}
+                      availableTeams={availableTeams}
+                      onSaved={(teamIds, teamNames) => {
+                        setStaff((current) =>
+                          current.map((row) =>
+                            row.id === member.id
+                              ? { ...row, teamIds, teams: teamNames }
+                              : row,
+                          ),
+                        );
+                      }}
+                    />
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {member.role.replace(/_/g, " ")}
-                  {member.teams.length ? ` · ${member.teams.join(", ")}` : ""}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Teams:{" "}
+                  {member.teams.length > 0 ? member.teams.join(", ") : "None"}
                 </p>
                 {member.phone && (
                   <p className="text-sm text-muted-foreground">{member.phone}</p>

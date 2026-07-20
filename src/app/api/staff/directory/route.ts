@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { UserRole } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
@@ -17,29 +16,39 @@ export async function GET() {
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
 
-  const staff = await prisma.user.findMany({
-    where: {
-      organizationId: session.user.organizationId,
-      isActive: true,
-      role: { in: STAFF_ROLES },
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      teamAssignments: {
-        include: { team: { select: { name: true, color: true } } },
+  const [staff, teams] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        organizationId: session.user.organizationId,
+        isActive: true,
+        role: { in: STAFF_ROLES },
       },
-      certifications: {
-        orderBy: { type: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        teamAssignments: {
+          where: { team: { sessionId: campSession.id } },
+          include: { team: { select: { id: true, name: true, color: true } } },
+          orderBy: { team: { name: "asc" } },
+        },
+        certifications: {
+          orderBy: { type: "asc" },
+        },
       },
-    },
-    orderBy: [{ name: "asc" }],
-  });
+      orderBy: [{ name: "asc" }],
+    }),
+    prisma.team.findMany({
+      where: { sessionId: campSession.id },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return NextResponse.json({
+    teams,
     staff: staff.map((member) => ({
       id: member.id,
       name: member.name,
@@ -47,6 +56,7 @@ export async function GET() {
       phone: member.phone,
       role: member.role,
       teams: member.teamAssignments.map((assignment) => assignment.team.name),
+      teamIds: member.teamAssignments.map((assignment) => assignment.team.id),
       certifications: member.certifications.map((cert) => ({
         id: cert.id,
         type: cert.type,

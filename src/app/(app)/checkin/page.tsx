@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { getOpenCheckInsForSession } from "@/lib/checkin/server";
+import { studentCheckInWhere } from "@/lib/staff/team-access";
 import { CheckInFlow } from "@/components/checkin/checkin-flow";
 
 export default async function CheckInPage() {
@@ -28,9 +29,15 @@ export default async function CheckInPage() {
   const windowStart = new Date(now.getTime() - 2 * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000);
 
+  const studentWhere = await studentCheckInWhere(
+    session.user.id,
+    session.user.role,
+    campSession.id,
+  );
+
   const [students, openCheckIns, activities] = await Promise.all([
     prisma.student.findMany({
-      where: { sessionId: campSession.id },
+      where: studentWhere,
       select: {
         id: true,
         firstName: true,

@@ -4,9 +4,11 @@ import { auth } from "@/lib/auth";
 import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { getWhosHereData } from "@/lib/attendance/whos-here";
+import { getActivityDistribution } from "@/lib/attendance/activity-distribution";
 import { getMissingStudentAlerts } from "@/lib/alerts/missing-students";
 import { PageHeader } from "@/components/design-system/page-header";
 import { WhosHereList } from "@/components/checkin/whos-here-list";
+import { ActivityDistributionChart } from "@/components/dashboard/activity-distribution-chart";
 import { StatusBadge } from "@/components/design-system/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,12 +26,14 @@ export default async function DashboardPage() {
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
 
-  const [whosHere, teamCount, studentCount, missingAlerts] = await Promise.all([
-    getWhosHereData(campSession.id),
-    prisma.team.count({ where: { sessionId: campSession.id } }),
-    prisma.student.count({ where: { sessionId: campSession.id } }),
-    getMissingStudentAlerts(campSession.id),
-  ]);
+  const [whosHere, teamCount, studentCount, missingAlerts, distribution] =
+    await Promise.all([
+      getWhosHereData(campSession.id),
+      prisma.team.count({ where: { sessionId: campSession.id } }),
+      prisma.student.count({ where: { sessionId: campSession.id } }),
+      getMissingStudentAlerts(campSession.id),
+      getActivityDistribution(campSession.id),
+    ]);
 
   const missingCount = missingAlerts.reduce(
     (sum, alert) => sum + alert.students.length,
@@ -134,6 +138,11 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      <ActivityDistributionChart
+        initialSlices={distribution.slices}
+        initialTotalStudents={distribution.totalStudents}
+      />
+
       <Card className="rounded-2xl">
         <CardContent className="pt-6">
           <WhosHereList
@@ -142,6 +151,7 @@ export default async function DashboardPage() {
             checkIns={whosHere.checkIns.map((checkIn) => ({
               ...checkIn,
               checkedInAt: checkIn.checkedInAt.toISOString(),
+              notCheckedIn: checkIn.notCheckedIn ?? false,
             }))}
             teams={whosHere.teams}
             activities={whosHere.activities.map((activity) => ({
