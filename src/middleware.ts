@@ -122,6 +122,15 @@ export async function middleware(request: NextRequest) {
 
   const role = token.role as UserRole;
 
+  if (token.mustChangePassword && pathname !== "/change-password") {
+    return NextResponse.redirect(new URL("/change-password", request.url));
+  }
+
+  if (!token.mustChangePassword && pathname === "/change-password") {
+    const dest = role === "PARENT" ? "/parent/dashboard" : "/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
   if (isParentRoute(pathname) && role !== "PARENT") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }

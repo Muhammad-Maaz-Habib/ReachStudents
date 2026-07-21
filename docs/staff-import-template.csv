@@ -1,0 +1,5 @@
+first_name,last_name,role,email,phone,team,emergency_contact_1_name,emergency_contact_1_phone,emergency_contact_2_name,emergency_contact_2_phone,food_allergy,dietary_restriction,dietary_other
+Ava,Nguyen,STAFF,ava.nguyen@demo.camp,555-020-0001,Pre-Med,Sam Nguyen,555-020-0002,Jordan Lee,555-020-0003,Shellfish,Vegetarian,
+Chris,Patel,NURSE,chris.patel@demo.camp,555-020-0010,Biotechnology,Priya Patel,555-020-0011,,,Peanuts,,No tree nuts
+Morgan,Brooks,SESSION_ADMIN,morgan.brooks@demo.camp,555-020-0020,Trial Law,Alex Brooks,555-020-0021,,,,Gluten-free,
+Bad,Role,LIFEGUARD,bad.role@demo.camp,555-020-0099,Pre-Med,,,,,,,

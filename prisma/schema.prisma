@@ -117,6 +117,14 @@ model User {
   role           UserRole  @default(STAFF)
   phone          String?
   isActive       Boolean   @default(true)
+  mustChangePassword Boolean @default(false)
+  emergencyContact1Name  String?
+  emergencyContact1Phone String?
+  emergencyContact2Name  String?
+  emergencyContact2Phone String?
+  foodAllergy            String?
+  dietaryRestriction     String?
+  dietaryOther           String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

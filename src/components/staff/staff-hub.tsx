@@ -7,6 +7,7 @@ import {
   BookOpen,
   Calendar,
   RefreshCw,
+  Upload,
   UserCog,
   Users,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/design-system/status-badge";
 import { CertificationAlertsPanel } from "@/components/staff/certification-alerts-panel";
 import { StaffTeamEditor } from "@/components/staff/staff-team-editor";
+import { ImportStaffDialog } from "@/components/staff/import-staff-dialog";
 import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "directory" | "swaps" | "resources";
@@ -40,6 +42,13 @@ type StaffMember = {
   role: string;
   teams: string[];
   teamIds: string[];
+  emergencyContact1Name: string | null;
+  emergencyContact1Phone: string | null;
+  emergencyContact2Name: string | null;
+  emergencyContact2Phone: string | null;
+  foodAllergy: string | null;
+  dietaryRestriction: string | null;
+  dietaryOther: string | null;
   certifications: {
     type: string;
     label: string | null;
@@ -82,6 +91,7 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [myShiftId, setMyShiftId] = useState("");
   const [targetShiftId, setTargetShiftId] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   async function loadRoster() {
     const response = await fetch("/api/staff/shifts");
@@ -231,7 +241,20 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
       )}
 
       {tab === "directory" && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-4">
+          {canManage && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                className="min-h-11"
+                onClick={() => setImportOpen(true)}
+              >
+                <Upload className="size-4" aria-hidden />
+                Upload CSV
+              </Button>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
           {staff.map((member) => (
             <Card key={member.id} className="rounded-2xl">
               <CardContent className="space-y-2 pt-6">
@@ -261,12 +284,43 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
                 <p className="text-sm text-muted-foreground">
                   {member.role.replace(/_/g, " ")}
                 </p>
+                <p className="text-sm text-muted-foreground">{member.email}</p>
                 <p className="text-sm text-muted-foreground">
                   Teams:{" "}
                   {member.teams.length > 0 ? member.teams.join(", ") : "None"}
                 </p>
                 {member.phone && (
                   <p className="text-sm text-muted-foreground">{member.phone}</p>
+                )}
+                {(member.emergencyContact1Name || member.emergencyContact1Phone) && (
+                  <p className="text-sm text-muted-foreground">
+                    Emergency 1:{" "}
+                    {[member.emergencyContact1Name, member.emergencyContact1Phone]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                {(member.emergencyContact2Name || member.emergencyContact2Phone) && (
+                  <p className="text-sm text-muted-foreground">
+                    Emergency 2:{" "}
+                    {[member.emergencyContact2Name, member.emergencyContact2Phone]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                {(member.foodAllergy ||
+                  member.dietaryRestriction ||
+                  member.dietaryOther) && (
+                  <p className="text-sm text-muted-foreground">
+                    Dietary:{" "}
+                    {[
+                      member.foodAllergy && `Allergy: ${member.foodAllergy}`,
+                      member.dietaryRestriction,
+                      member.dietaryOther,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                 )}
                 {member.certifications.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
@@ -282,6 +336,12 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
               </CardContent>
             </Card>
           ))}
+          </div>
+          <ImportStaffDialog
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            onImported={() => void loadAll()}
+          />
         </div>
       )}
 

@@ -52,17 +52,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           organizationId: user.organizationId,
           organizationName: user.organization?.name ?? null,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = user.role as UserRole;
         token.organizationId = user.organizationId as string | null;
         token.organizationName = user.organizationName as string | null;
+        token.mustChangePassword = Boolean(user.mustChangePassword);
       }
+
+      if (trigger === "update" && token.sub) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { mustChangePassword: true, role: true, organizationId: true },
+        });
+        if (fresh) {
+          token.mustChangePassword = fresh.mustChangePassword;
+          token.role = fresh.role;
+          token.organizationId = fresh.organizationId;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -71,6 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as UserRole;
         session.user.organizationId = token.organizationId as string | null;
         session.user.organizationName = token.organizationName as string | null;
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },
