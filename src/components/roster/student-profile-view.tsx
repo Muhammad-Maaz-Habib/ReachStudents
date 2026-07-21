@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ConfidentialNotesCard } from "@/components/health/confidential-notes-card";
+import { DeleteStudentButton } from "@/components/roster/delete-student-button";
 import type { StudentFormInput } from "@/lib/validations/student";
 
 type TeamOption = {
@@ -60,6 +61,7 @@ type StudentProfileViewProps = {
   student: StudentProfile;
   teams: TeamOption[];
   canEdit: boolean;
+  canDelete?: boolean;
   canViewConfidential?: boolean;
   canEditConfidential?: boolean;
 };
@@ -97,6 +99,7 @@ export function StudentProfileView({
   student,
   teams,
   canEdit,
+  canDelete = false,
   canViewConfidential = false,
   canEditConfidential = false,
 }: StudentProfileViewProps) {
@@ -126,11 +129,21 @@ export function StudentProfileView({
             />
           </div>
         </div>
-        {canEdit && (
-          <Button className="min-h-11" onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" aria-hidden />
-            Edit
-          </Button>
+        {(canEdit || canDelete) && (
+          <div className="flex flex-wrap gap-2">
+            {canEdit && (
+              <Button className="min-h-11" onClick={() => setEditOpen(true)}>
+                <Pencil className="size-4" aria-hidden />
+                Edit
+              </Button>
+            )}
+            {canDelete && (
+              <DeleteStudentButton
+                studentId={student.id}
+                studentName={`${student.firstName} ${student.lastName}`}
+              />
+            )}
+          </div>
         )}
       </div>
 

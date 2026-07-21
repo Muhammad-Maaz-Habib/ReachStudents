@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/design-system/status-badge";
 import { CertificationAlertsPanel } from "@/components/staff/certification-alerts-panel";
 import { StaffTeamEditor } from "@/components/staff/staff-team-editor";
 import { ImportStaffDialog } from "@/components/staff/import-staff-dialog";
+import { DeactivateStaffButton } from "@/components/staff/deactivate-staff-button";
 import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "directory" | "swaps" | "resources";
@@ -264,21 +265,33 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
                     <p className="font-semibold">{member.name ?? member.email}</p>
                   </div>
                   {canManage && (
-                    <StaffTeamEditor
-                      staffId={member.id}
-                      staffName={member.name ?? member.email}
-                      initialTeamIds={member.teamIds}
-                      availableTeams={availableTeams}
-                      onSaved={(teamIds, teamNames) => {
-                        setStaff((current) =>
-                          current.map((row) =>
-                            row.id === member.id
-                              ? { ...row, teamIds, teams: teamNames }
-                              : row,
-                          ),
-                        );
-                      }}
-                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <StaffTeamEditor
+                        staffId={member.id}
+                        staffName={member.name ?? member.email}
+                        initialTeamIds={member.teamIds}
+                        availableTeams={availableTeams}
+                        onSaved={(teamIds, teamNames) => {
+                          setStaff((current) =>
+                            current.map((row) =>
+                              row.id === member.id
+                                ? { ...row, teamIds, teams: teamNames }
+                                : row,
+                            ),
+                          );
+                        }}
+                      />
+                      <DeactivateStaffButton
+                        staffId={member.id}
+                        staffName={member.name ?? member.email}
+                        staffEmail={member.email}
+                        onDeactivated={() => {
+                          setStaff((current) =>
+                            current.filter((row) => row.id !== member.id),
+                          );
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">

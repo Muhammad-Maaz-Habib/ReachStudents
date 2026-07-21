@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOrganizationSession } from "@/lib/org";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
+import { ADMIN_ROLES } from "@/lib/constants";
 import { studentInclude } from "@/lib/students";
 import { StudentProfileView } from "@/components/roster/student-profile-view";
 import {
@@ -113,6 +114,7 @@ export default async function StudentProfilePage({
       student={serialized}
       teams={campSession.teams.map((team) => ({ id: team.id, name: team.name }))}
       canEdit={canEdit}
+      canDelete={ADMIN_ROLES.includes(session.user.role)}
       canViewConfidential={canViewConfidential}
       canEditConfidential={canEditConfidential}
     />
