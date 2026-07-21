@@ -3,10 +3,14 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, LogIn, LogOut, Users } from "lucide-react";
+import { Search, LogIn, LogOut, Users, ClipboardCheck, Plus } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { MedicalFlagBadge } from "@/components/roster/medical-flag-badge";
 import { OfflineBanner } from "@/components/checkin/offline-banner";
+import {
+  QuickCreateActivityDialog,
+  type CreatedActivity,
+} from "@/components/checkin/quick-create-activity-dialog";
 import { StatusBadge } from "@/components/design-system/status-badge";
 import { useCheckInActions } from "@/hooks/use-checkin";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -37,6 +41,7 @@ type ActivityOption = {
   location: string | null;
   startTime: string;
   endTime: string;
+  color?: string | null;
 };
 
 type OpenCheckIn = {
@@ -52,13 +57,17 @@ type MissingAlert = {
   students: { firstName: string; lastName: string }[];
 };
 
+type TeamOption = { id: string; name: string };
+
 type CheckInFlowProps = {
   staffId: string;
   sessionName: string;
   students: StudentRow[];
   activities: ActivityOption[];
+  teams: TeamOption[];
   openCheckIns: OpenCheckIn[];
   checkedInCount: number;
+  canCreateActivity: boolean;
 };
 
 function scopeKey(studentId: string, activityId: string | null) {
@@ -69,15 +78,19 @@ export function CheckInFlow({
   staffId,
   sessionName,
   students,
-  activities,
+  activities: initialActivities,
+  teams,
   openCheckIns: initialOpen,
   checkedInCount,
+  canCreateActivity,
 }: CheckInFlowProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activities, setActivities] = useState(initialActivities);
   const [activityId, setActivityId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [missingAlerts, setMissingAlerts] = useState<MissingAlert[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [openMap, setOpenMap] = useState(
@@ -92,6 +105,29 @@ export function CheckInFlow({
 
   const { isOnline, pendingCount, isSyncing, performCheckIn, syncPending } =
     useCheckInActions(() => router.refresh());
+
+  useEffect(() => {
+    setActivities(initialActivities);
+  }, [initialActivities]);
+
+  function handleActivityCreated(activity: CreatedActivity) {
+    setActivities((current) => {
+      if (current.some((row) => row.id === activity.id)) return current;
+      return [
+        {
+          id: activity.id,
+          name: activity.name,
+          location: activity.location,
+          startTime: activity.startTime,
+          endTime: activity.endTime,
+          color: activity.color,
+        },
+        ...current,
+      ];
+    });
+    setActivityId(activity.id);
+    router.refresh();
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -206,6 +242,24 @@ export function CheckInFlow({
         description={`${sessionName} · ${checkedInCount} checked in now`}
         action={
           <div className="flex flex-wrap gap-2">
+            {canCreateActivity && (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="size-4" aria-hidden />
+                New activity
+              </Button>
+            )}
+            <Link
+              href="/checkin/roll-call"
+              className={cn(buttonVariants({ variant: "outline" }), "min-h-11")}
+            >
+              <ClipboardCheck className="size-4" aria-hidden />
+              Activity roll call
+            </Link>
             <Link
               href="/checkin/whos-here"
               className={cn(buttonVariants({ variant: "outline" }), "min-h-11")}
@@ -221,6 +275,15 @@ export function CheckInFlow({
         }
       />
 
+      {canCreateActivity && (
+        <QuickCreateActivityDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          teams={teams}
+          existingColors={activities.map((activity) => activity.color)}
+          onCreated={handleActivityCreated}
+        />
+      )}
       <Select
         value={activityId ?? "general"}
         onValueChange={(value) =>
