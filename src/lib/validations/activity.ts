@@ -51,10 +51,18 @@ export type ActivityFormInput = z.infer<typeof activityFormSchema>;
 export type ActivitySeriesInput = z.infer<typeof activitySeriesSchema>;
 
 /** Soft end bound for open-ended roll-call activities (end of session day UTC). */
-export function openEndedActivityEnd(sessionEndDate: Date) {
-  const end = new Date(sessionEndDate);
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
+export function openEndedActivityEnd(sessionEndDate: Date, startTime = new Date()) {
+  const sessionEnd = new Date(sessionEndDate);
+  sessionEnd.setUTCHours(23, 59, 59, 999);
+
+  const endOfStartDay = new Date(startTime);
+  endOfStartDay.setUTCHours(23, 59, 59, 999);
+
+  const minEnd = new Date(startTime.getTime() + 60 * 60 * 1000);
+
+  return new Date(
+    Math.max(sessionEnd.getTime(), endOfStartDay.getTime(), minEnd.getTime()),
+  );
 }
 
 /**

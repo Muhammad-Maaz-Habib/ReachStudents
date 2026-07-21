@@ -95,10 +95,10 @@ export async function POST(request: Request) {
     ? new Date()
     : new Date(data.startTime!);
   const endTime = isOpenEnded
-    ? openEndedActivityEnd(campSession.endDate)
+    ? openEndedActivityEnd(campSession.endDate, startTime)
     : new Date(data.endTime!);
 
-  if (!(endTime > startTime)) {
+  if (!isOpenEnded && !(endTime > startTime)) {
     return NextResponse.json(
       { error: "End time must be after start time" },
       { status: 400 },
