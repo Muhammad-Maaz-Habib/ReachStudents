@@ -1,8 +1,12 @@
 export type FormFieldType =
   | "text"
   | "textarea"
-  | "checkbox"
+  | "number"
   | "date"
+  | "select"
+  | "multiselect"
+  | "yesno"
+  | "checkbox"
   | "signature";
 
 export type FormFieldDefinition = {
@@ -11,7 +15,11 @@ export type FormFieldDefinition = {
   type: FormFieldType;
   required?: boolean;
   helpText?: string;
+  /** Options for select / multiselect fields. */
+  options?: string[];
 };
+
+export type FormResponseValue = string | boolean | string[];
 
 export type FormTemplateType =
   | "PERMISSION_SLIP"
@@ -19,12 +27,31 @@ export type FormTemplateType =
   | "PHOTO_RELEASE"
   | "LIABILITY_WAIVER";
 
+/** Form.type value for admin-built reusable schemas. */
+export const CUSTOM_FORM_TYPE = "CUSTOM";
+
 export type FormTemplate = {
   type: FormTemplateType;
   title: string;
   description: string;
   fields: FormFieldDefinition[];
 };
+
+export const FORM_FIELD_TYPE_OPTIONS: {
+  value: FormFieldType;
+  label: string;
+  needsOptions?: boolean;
+}[] = [
+  { value: "text", label: "Short text" },
+  { value: "textarea", label: "Long text / paragraph" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date" },
+  { value: "select", label: "Single-select", needsOptions: true },
+  { value: "multiselect", label: "Multi-select", needsOptions: true },
+  { value: "yesno", label: "Yes / No" },
+  { value: "checkbox", label: "Checkbox (agree)" },
+  { value: "signature", label: "Signature" },
+];
 
 export const FORM_TEMPLATES: Record<FormTemplateType, FormTemplate> = {
   PERMISSION_SLIP: {
@@ -145,3 +172,24 @@ export const FORM_TEMPLATE_OPTIONS = Object.values(FORM_TEMPLATES).map((template
   title: template.title,
   description: template.description,
 }));
+
+export function formHasSignatureField(fields: FormFieldDefinition[]) {
+  return fields.some((field) => field.type === "signature");
+}
+
+export function slugifyFieldId(label: string, existingIds: string[]) {
+  const base =
+    label
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 40) || "field";
+  let id = base;
+  let n = 2;
+  while (existingIds.includes(id)) {
+    id = `${base}_${n}`;
+    n += 1;
+  }
+  return id;
+}

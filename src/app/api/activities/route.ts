@@ -5,11 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { activityFormSchema, openEndedActivityEnd } from "@/lib/validations/activity";
-import { assignTeamToActivity } from "@/lib/schedule/activities";
-import {
-  nextActivityColor,
-  normalizeActivityColor,
-} from "@/lib/schedule/activity-colors";
+import { createOneOffActivity } from "@/lib/schedule/activities";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -81,19 +77,8 @@ export async function POST(request: Request) {
   const campSession = await requireOrganizationSession(session.user.organizationId);
   const data = parsed.data;
 
-  const existingColors = await prisma.activity.findMany({
-    where: { sessionId: campSession.id },
-    select: { color: true },
-  });
-
-  const color = normalizeActivityColor(
-    data.color ?? nextActivityColor(existingColors.map((row) => row.color)),
-  );
-
   const isOpenEnded = Boolean(data.isOpenEnded);
-  const startTime = isOpenEnded
-    ? new Date()
-    : new Date(data.startTime!);
+  const startTime = isOpenEnded ? new Date() : new Date(data.startTime!);
   const endTime = isOpenEnded
     ? openEndedActivityEnd(campSession.endDate, startTime)
     : new Date(data.endTime!);
@@ -105,25 +90,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const activity = await prisma.activity.create({
-    data: {
-      sessionId: campSession.id,
-      name: data.name,
-      description: data.description,
-      location: data.location,
-      capacity: data.capacity ? Number(data.capacity) : null,
-      color,
-      teamId: data.teamId || null,
-      startTime,
-      endTime,
-      isOpenEnded,
-      overdueAlertMinutes: data.overdueAlertMinutes,
-    },
+  const activity = await createOneOffActivity(campSession.id, {
+    name: data.name,
+    description: data.description,
+    location: data.location,
+    capacity: data.capacity ? Number(data.capacity) : undefined,
+    color: data.color,
+    teamId: data.teamId || null,
+    startTime,
+    endTime,
+    isOpenEnded,
+    overdueAlertMinutes: data.overdueAlertMinutes,
   });
-
-  if (data.teamId) {
-    await assignTeamToActivity(activity.id, data.teamId);
-  }
 
   return NextResponse.json({ activity }, { status: 201 });
 }

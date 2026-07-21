@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { CsvFormatHelper } from "@/components/design-system/csv-format-helper";
 import { ROSTER_CSV_COLUMNS } from "@/lib/csv/student-import";
+import { ROSTER_CSV_AI_PROMPT } from "@/lib/csv/import-ai-prompts";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,7 +85,7 @@ export function ImportRosterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Import roster CSV</DialogTitle>
           <DialogDescription>
@@ -98,6 +99,7 @@ export function ImportRosterDialog({
             columns={ROSTER_CSV_COLUMNS}
             exampleRow={ROSTER_EXAMPLE_ROW}
             filename="roster-import-template.csv"
+            aiPrompt={ROSTER_CSV_AI_PROMPT}
             notes={
               <p className="text-sm text-muted-foreground">
                 Required: <code>first_name</code>, <code>last_name</code>. Other

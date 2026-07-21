@@ -9,6 +9,7 @@ import {
   FileText,
   HeartPulse,
   Home,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -20,7 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { Logo } from "@/components/branding/logo";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -110,14 +111,26 @@ export function AppSidebar({ items, user, onSignOut }: AppSidebarProps) {
           </p>
         </div>
         <Separator className="mb-3" />
-        <Button
-          variant="outline"
-          className="w-full justify-start"
-          onClick={onSignOut}
-        >
-          <LogOut className="size-4" aria-hidden />
-          Sign out
-        </Button>
+        <div className="space-y-2">
+          <Link
+            href="/account"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "w-full justify-start",
+            )}
+          >
+            <KeyRound className="size-4" aria-hidden />
+            Change password
+          </Link>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={onSignOut}
+          >
+            <LogOut className="size-4" aria-hidden />
+            Sign out
+          </Button>
+        </div>
       </div>
     </aside>
   );

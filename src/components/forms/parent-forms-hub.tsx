@@ -29,17 +29,22 @@ export function ParentFormsHub() {
   const [completed, setCompleted] = useState<CompletedForm[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  async function load() {
+    const response = await fetch("/api/parent/forms");
+    if (!response.ok) return;
+    const data = await response.json();
+    setPending(data.pending ?? []);
+    setCompleted(data.completed ?? []);
+    setActiveId((current) => {
+      const keys = (data.pending ?? []).map(
+        (item: PendingForm) => `${item.formId}:${item.studentId}`,
+      );
+      if (current && keys.includes(current)) return current;
+      return keys[0] ?? null;
+    });
+  }
+
   useEffect(() => {
-    async function load() {
-      const response = await fetch("/api/parent/forms");
-      if (!response.ok) return;
-      const data = await response.json();
-      setPending(data.pending ?? []);
-      setCompleted(data.completed ?? []);
-      if (data.pending?.[0]) {
-        setActiveId(`${data.pending[0].formId}:${data.pending[0].studentId}`);
-      }
-    }
     void load();
   }, []);
 
@@ -64,7 +69,7 @@ export function ParentFormsHub() {
         <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
           {pending.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Pending</p>
+              <p className="text-sm font-medium">Pending ({pending.length})</p>
               {pending.map((item) => {
                 const key = `${item.formId}:${item.studentId}`;
                 return (
@@ -92,16 +97,21 @@ export function ParentFormsHub() {
                 studentName={active.studentName}
                 formTitle={active.title}
                 fields={active.fields}
+                onSubmitted={() => void load()}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                Select a pending form to sign.
+                {pending.length === 0
+                  ? "All caught up — no pending forms."
+                  : "Select a pending form to sign."}
               </p>
             )}
 
             {completed.length > 0 && (
               <div className="rounded-2xl border p-4">
-                <p className="mb-2 font-medium">Completed</p>
+                <p className="mb-2 font-medium">
+                  Completed ({completed.length})
+                </p>
                 <ul className="space-y-1 text-sm text-muted-foreground">
                   {completed.map((item) => (
                     <li key={`${item.formId}:${item.studentId}`}>

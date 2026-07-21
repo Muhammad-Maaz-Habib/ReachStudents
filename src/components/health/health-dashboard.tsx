@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Upload } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
+import { ImportHealthDialog } from "@/components/health/import-health-dialog";
 import { MedicationLogPanel } from "@/components/health/medication-log-panel";
 import { WellnessCheckIn } from "@/components/health/wellness-check-in";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 type HealthDashboardProps = {
   canEditMedical: boolean;
+  canImportHealth?: boolean;
   students: { id: string; name: string; medicalProfileId: string | null }[];
   initialMedicationLogs: {
     id: string;
@@ -35,10 +38,12 @@ type HealthData = {
 
 export function HealthDashboard({
   canEditMedical,
+  canImportHealth = false,
   students,
   initialMedicationLogs,
 }: HealthDashboardProps) {
   const [data, setData] = useState<HealthData | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -55,6 +60,19 @@ export function HealthDashboard({
       <PageHeader
         title="Health & wellness"
         description="Medication accountability log, emoji wellness taps, and medical flags."
+        action={
+          canImportHealth ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="size-4" aria-hidden />
+              Import health CSV
+            </Button>
+          ) : undefined
+        }
       />
 
       <WellnessCheckIn students={students} />
@@ -95,6 +113,10 @@ export function HealthDashboard({
           ))}
         </CardContent>
       </Card>
+
+      {canImportHealth && (
+        <ImportHealthDialog open={importOpen} onOpenChange={setImportOpen} />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Info, Plus } from "lucide-react";
+import { Info, Plus, Upload } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -15,6 +15,7 @@ import type {
 } from "@fullcalendar/core";
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
 import { PageHeader } from "@/components/design-system/page-header";
+import { ImportScheduleDialog } from "@/components/schedule/import-schedule-dialog";
 import { RecurringSeriesTrigger } from "@/components/schedule/recurring-series-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +61,7 @@ type ScheduleBuilderProps = {
   initialEvents: CalendarActivity[];
   teams: TeamOption[];
   canEdit: boolean;
+  canImportCsv?: boolean;
 };
 
 type EditState = {
@@ -138,12 +140,14 @@ export function ScheduleBuilder({
   initialEvents,
   teams,
   canEdit,
+  canImportCsv = false,
 }: ScheduleBuilderProps) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar | null>(null);
   const [events, setEvents] = useState(initialEvents);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [createColor, setCreateColor] = useState<string>(() =>
     nextActivityColor(initialEvents.map((event) => event.backgroundColor)),
@@ -342,18 +346,33 @@ export function ScheduleBuilder({
         title="Schedule"
         description={`${sessionName} · drag to create, drag to reschedule, or use the buttons`}
         action={
-          canEdit ? (
+          canEdit || canImportCsv ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" className="min-h-11" onClick={openBlankCreate}>
-                <Plus className="size-4" aria-hidden />
-                Add activity
-              </Button>
-              <RecurringSeriesTrigger
-                sessionStart={sessionStart}
-                sessionEnd={sessionEnd}
-                teams={teams}
-                existingColors={events.map((event) => event.backgroundColor)}
-              />
+              {canImportCsv && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => setImportOpen(true)}
+                >
+                  <Upload className="size-4" aria-hidden />
+                  Import CSV
+                </Button>
+              )}
+              {canEdit && (
+                <>
+                  <Button type="button" className="min-h-11" onClick={openBlankCreate}>
+                    <Plus className="size-4" aria-hidden />
+                    Add activity
+                  </Button>
+                  <RecurringSeriesTrigger
+                    sessionStart={sessionStart}
+                    sessionEnd={sessionEnd}
+                    teams={teams}
+                    existingColors={events.map((event) => event.backgroundColor)}
+                  />
+                </>
+              )}
             </div>
           ) : undefined
         }
@@ -581,6 +600,10 @@ export function ScheduleBuilder({
           )}
         </DialogContent>
       </Dialog>
+
+      {canImportCsv && (
+        <ImportScheduleDialog open={importOpen} onOpenChange={setImportOpen} />
+      )}
     </div>
   );
 }

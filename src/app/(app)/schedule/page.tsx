@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/constants";
 import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
@@ -35,6 +36,7 @@ export default async function SchedulePage() {
     }),
   ]);
 
+  const canImportCsv = ADMIN_ROLES.includes(session.user.role);
   const initialEvents = activities.map((activity) => {
     const color = colorForActivity(activity.id, activity.color);
     const display = activityCalendarDisplay({
@@ -70,6 +72,7 @@ export default async function SchedulePage() {
       initialEvents={initialEvents}
       teams={teams}
       canEdit={canEdit}
+      canImportCsv={canImportCsv}
     />
   );
 }

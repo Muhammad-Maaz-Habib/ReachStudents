@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Send } from "lucide-react";
+import { FileText, Send, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { EmptyState } from "@/components/design-system/empty-state";
+import { CustomFormBuilderDialog } from "@/components/forms/custom-form-builder-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,14 @@ type FormRow = {
   missingCount: number;
 };
 
+type CustomTemplateRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  fieldCount: number;
+  updatedAt: string;
+};
+
 type FormsHubProps = {
   canEdit: boolean;
 };
@@ -29,18 +38,24 @@ type FormsHubProps = {
 export function FormsHub({ canEdit }: FormsHubProps) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplateRow[]>(
+    [],
+  );
   const [templateType, setTemplateType] = useState<FormTemplateType>(
     FORM_TEMPLATE_OPTIONS[0].type,
   );
   const [deadline, setDeadline] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   async function loadForms() {
     const response = await fetch("/api/forms");
     if (!response.ok) return;
     const data = await response.json();
     setForms(data.forms ?? []);
+    setCustomTemplates(data.customTemplates ?? []);
   }
 
   useEffect(() => {
@@ -54,6 +69,7 @@ export function FormsHub({ canEdit }: FormsHubProps) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        source: "template",
         templateType,
         deadline: deadline || undefined,
       }),
@@ -65,6 +81,26 @@ export function FormsHub({ canEdit }: FormsHubProps) {
     }
     toast.success("Form created from template");
     setDeadline("");
+    router.refresh();
+    await loadForms();
+  }
+
+  async function publishCustomTemplate(templateId: string) {
+    setPublishingId(templateId);
+    const response = await fetch("/api/forms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: "publish_custom",
+        templateId,
+      }),
+    });
+    setPublishingId(null);
+    if (!response.ok) {
+      toast.error("Could not publish custom template");
+      return;
+    }
+    toast.success("Custom form published to this session");
     router.refresh();
     await loadForms();
   }
@@ -89,7 +125,20 @@ export function FormsHub({ canEdit }: FormsHubProps) {
     <div className="space-y-6">
       <PageHeader
         title="Forms & consent"
-        description="Template-based permission slips and waivers — not a free-form field builder in v1."
+        description="Publish fixed templates or build reusable custom forms for parent e-signature."
+        action={
+          canEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setBuilderOpen(true)}
+            >
+              <Wrench className="size-4" aria-hidden />
+              Create custom form
+            </Button>
+          ) : undefined
+        }
       />
 
       {canEdit && (
@@ -97,8 +146,8 @@ export function FormsHub({ canEdit }: FormsHubProps) {
           <CardHeader>
             <CardTitle className="text-lg">Create form from template</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Pick a camp-standard form type. Staff customize title/deadline; fields are
-              structured per template.
+              Pick a camp-standard form type. Staff customize deadline; fields
+              come from the template.
             </p>
           </CardHeader>
           <CardContent>
@@ -138,14 +187,55 @@ export function FormsHub({ canEdit }: FormsHubProps) {
         </Card>
       )}
 
+      {canEdit && customTemplates.length > 0 && (
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-lg">Custom templates</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Reusable schemas saved for your organization. Publish a copy to the
+              active session whenever you need parents to fill it out.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {customTemplates.map((template) => (
+              <div
+                key={template.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+              >
+                <div>
+                  <p className="font-medium">{template.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {template.fieldCount} field
+                    {template.fieldCount === 1 ? "" : "s"}
+                    {template.description ? ` · ${template.description}` : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  disabled={publishingId === template.id}
+                  onClick={() => void publishCustomTemplate(template.id)}
+                >
+                  {publishingId === template.id
+                    ? "Publishing..."
+                    : "Publish to session"}
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {forms.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No forms yet"
-          description="Create a permission slip, medical consent, photo release, or waiver from a template."
+          description="Create a permission slip, medical consent, photo release, waiver, or custom form."
         />
       ) : (
         <div className="space-y-3">
+          <p className="text-sm font-medium">Published for this session</p>
           {forms.map((form) => (
             <Card key={form.id} className="rounded-2xl">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
@@ -175,6 +265,17 @@ export function FormsHub({ canEdit }: FormsHubProps) {
             </Card>
           ))}
         </div>
+      )}
+
+      {canEdit && (
+        <CustomFormBuilderDialog
+          open={builderOpen}
+          onOpenChange={setBuilderOpen}
+          onSaved={() => {
+            void loadForms();
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

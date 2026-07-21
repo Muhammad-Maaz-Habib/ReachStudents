@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { FormFieldDefinition } from "@/lib/forms/templates";
 import { formSubmissionSchema } from "@/lib/validations/forms";
+import { validateFormResponses } from "@/lib/forms/validate-responses";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -25,6 +26,7 @@ export async function POST(request: Request, context: RouteContext) {
       id: formId,
       organizationId: session.user.organizationId,
       isActive: true,
+      sessionId: { not: null },
     },
   });
   if (!form) {
@@ -46,15 +48,13 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const fields = form.fields as FormFieldDefinition[];
-  for (const field of fields) {
-    if (!field.required || field.type === "signature") continue;
-    const value = parsed.data.responses[field.id];
-    if (value === undefined || value === "" || value === false) {
-      return NextResponse.json(
-        { error: `Missing required field: ${field.label}` },
-        { status: 400 },
-      );
-    }
+  const validationError = validateFormResponses(
+    fields,
+    parsed.data.responses,
+    parsed.data.signatureDataUrl,
+  );
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
   const submission = await prisma.formSubmission.upsert({
@@ -66,7 +66,9 @@ export async function POST(request: Request, context: RouteContext) {
     },
     update: {
       responses: parsed.data.responses,
-      signatureData: { dataUrl: parsed.data.signatureDataUrl },
+      signatureData: parsed.data.signatureDataUrl
+        ? { dataUrl: parsed.data.signatureDataUrl }
+        : undefined,
       signerName: parsed.data.signerName,
       signerEmail: parsed.data.signerEmail,
       submittedById: session.user.id,
@@ -76,7 +78,9 @@ export async function POST(request: Request, context: RouteContext) {
       studentId: parsed.data.studentId,
       formId,
       responses: parsed.data.responses,
-      signatureData: { dataUrl: parsed.data.signatureDataUrl },
+      signatureData: parsed.data.signatureDataUrl
+        ? { dataUrl: parsed.data.signatureDataUrl }
+        : undefined,
       signerName: parsed.data.signerName,
       signerEmail: parsed.data.signerEmail,
       submittedById: session.user.id,

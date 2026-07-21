@@ -5,8 +5,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { CsvFormatHelper } from "@/components/design-system/csv-format-helper";
-import { STAFF_CSV_COLUMNS } from "@/lib/csv/staff-import";
-import { STAFF_CSV_AI_PROMPT } from "@/lib/csv/import-ai-prompts";
+import { SCHEDULE_CSV_COLUMNS } from "@/lib/csv/schedule-import";
+import { SCHEDULE_CSV_AI_PROMPT } from "@/lib/csv/import-ai-prompts";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,33 +17,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const STAFF_EXAMPLE_ROW = [
-  "Ava",
-  "Nguyen",
-  "STAFF",
-  "ava.nguyen@demo.camp",
-  "555-020-0001",
-  "Pre-Med",
-  "Sam Nguyen",
-  "555-020-0002",
-  "Jordan Lee",
-  "555-020-0003",
-  "Shellfish",
-  "Vegetarian",
-  "",
+const SCHEDULE_EXAMPLE_ROW = [
+  "Afternoon Swim",
+  "Pine Cabin",
+  "2026-06-16",
+  "14:00",
+  "60",
+  "Mon,Wed,Fri",
+  "15",
 ];
 
-type ImportStaffDialogProps = {
+type ImportScheduleDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImported?: () => void;
 };
 
-export function ImportStaffDialog({
+export function ImportScheduleDialog({
   open,
   onOpenChange,
-  onImported,
-}: ImportStaffDialogProps) {
+}: ImportScheduleDialogProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,11 +45,6 @@ export function ImportStaffDialog({
     skipped: number;
     errors: string[];
     warnings: string[];
-    temporaryCredentials: {
-      email: string;
-      name: string;
-      temporaryPassword: string;
-    }[];
   } | null>(null);
 
   async function handleImport(file: File) {
@@ -67,28 +54,17 @@ export function ImportStaffDialog({
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch("/api/staff/import", {
+    const response = await fetch("/api/activities/import", {
       method: "POST",
       body: formData,
     });
 
     const data = await response.json();
     setIsLoading(false);
-    setResult({
-      imported: data.imported ?? 0,
-      updated: data.updated ?? 0,
-      skipped: data.skipped ?? 0,
-      errors: data.errors ?? [],
-      warnings: data.warnings ?? [],
-      temporaryCredentials: data.temporaryCredentials ?? [],
-    });
+    setResult(data);
 
-    if (data.imported > 0 || data.updated > 0) {
-      const parts = [];
-      if (data.imported > 0) parts.push(`${data.imported} imported`);
-      if (data.updated > 0) parts.push(`${data.updated} updated`);
-      toast.success(parts.join(", "));
-      onImported?.();
+    if (data.imported > 0) {
+      toast.success(`${data.imported} activit${data.imported === 1 ? "y" : "ies"} imported`);
       router.refresh();
     } else if (!response.ok) {
       toast.error("Import failed — check the CSV format");
@@ -96,34 +72,30 @@ export function ImportStaffDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) setResult(null);
-        onOpenChange(nextOpen);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Import staff CSV</DialogTitle>
+          <DialogTitle>Import schedule CSV</DialogTitle>
           <DialogDescription>
-            Upload a UTF-8 CSV. New accounts get a temporary password and must
-            change it on first login.
+            Create one-off activities or recurring series. Team names must match
+            an existing team; leave team blank for session-wide activities.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <CsvFormatHelper
-            columns={STAFF_CSV_COLUMNS}
-            exampleRow={STAFF_EXAMPLE_ROW}
-            filename="staff-import-template.csv"
-            aiPrompt={STAFF_CSV_AI_PROMPT}
+            columns={SCHEDULE_CSV_COLUMNS}
+            exampleRow={SCHEDULE_EXAMPLE_ROW}
+            filename="schedule-import-template.csv"
+            aiPrompt={SCHEDULE_CSV_AI_PROMPT}
             notes={
               <p className="text-sm text-muted-foreground">
-                Required: <code>first_name</code>, <code>last_name</code>,{" "}
-                <code>role</code> (<code>STAFF</code>, <code>NURSE</code>, or{" "}
-                <code>SESSION_ADMIN</code>), and <code>email</code>. Team names
-                must match the active session.
+                Required: <code>activity_name</code>, <code>start_date</code>{" "}
+                (YYYY-MM-DD), <code>start_time</code> (HH:MM),{" "}
+                <code>duration_minutes</code> (15–480). Optional{" "}
+                <code>recurrence_days</code> (e.g. Mon,Wed,Fri) creates a series
+                from start_date through the session end. Blank recurrence creates
+                a one-off.
               </p>
             }
           />
@@ -136,7 +108,6 @@ export function ImportStaffDialog({
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void handleImport(file);
-              event.target.value = "";
             }}
           />
           <Button
@@ -156,12 +127,6 @@ export function ImportStaffDialog({
                 <span className="font-medium text-emerald-700">
                   {result.imported} imported
                 </span>
-                {result.updated > 0 && (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {result.updated} updated
-                  </span>
-                )}
                 {result.skipped > 0 && (
                   <span className="text-muted-foreground">
                     {" "}
@@ -169,20 +134,6 @@ export function ImportStaffDialog({
                   </span>
                 )}
               </p>
-              {result.temporaryCredentials.length > 0 && (
-                <div className="mt-3 space-y-1">
-                  <p className="font-medium text-foreground">
-                    Temporary passwords (share securely)
-                  </p>
-                  <ul className="max-h-40 space-y-1 overflow-y-auto font-mono text-xs">
-                    {result.temporaryCredentials.map((credential) => (
-                      <li key={credential.email}>
-                        {credential.email}: {credential.temporaryPassword}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
               {result.warnings.length > 0 && (
                 <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-amber-700">
                   {result.warnings.map((warning) => (

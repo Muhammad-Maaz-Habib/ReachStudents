@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
@@ -9,6 +10,7 @@ import { PermissionMatrixEditor } from "@/components/settings/permission-matrix-
 import { DataRetentionPanel } from "@/components/settings/data-retention-panel";
 import { SessionsPanel } from "@/components/settings/sessions-panel";
 import { TeamsPanel } from "@/components/settings/teams-panel";
+import { ChangePasswordForm } from "@/components/settings/change-password-form";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -85,6 +87,26 @@ export default async function SettingsPage() {
         title="Settings"
         description="Organization profile, sessions, teams, and permission matrix."
       />
+
+      <Card id="account" className="rounded-2xl scroll-mt-6">
+        <CardHeader>
+          <CardTitle>Your account</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Change the password for{" "}
+            <span className="font-medium text-foreground">
+              {session.user.email}
+            </span>
+            . Staff without Settings access can also use{" "}
+            <Link href="/account" className="underline underline-offset-2">
+              Account
+            </Link>
+            .
+          </p>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm mode="voluntary" />
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl">
         <CardHeader>

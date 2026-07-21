@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/constants";
 import { requireOrganizationSession } from "@/lib/org";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
@@ -24,6 +25,8 @@ export default async function HealthPage() {
     PermissionResource.HEALTH_RECORDS,
     "edit",
   );
+  const canImportHealth =
+    ADMIN_ROLES.includes(session.user.role) || canEditMedical;
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
 
@@ -56,6 +59,7 @@ export default async function HealthPage() {
   return (
     <HealthDashboard
       canEditMedical={canEditMedical}
+      canImportHealth={canImportHealth}
       students={students.map((student) => ({
         id: student.id,
         name: `${student.firstName} ${student.lastName}`,

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   if (parsed.data.currentPassword === parsed.data.newPassword) {
     return NextResponse.json(
-      { error: "New password must be different from the temporary password" },
+      { error: "New password must be different from your current password" },
       { status: 400 },
     );
   }
