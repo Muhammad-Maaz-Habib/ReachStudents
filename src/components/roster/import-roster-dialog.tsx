@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { CsvFormatHelper } from "@/components/design-system/csv-format-helper";
+import { ROSTER_CSV_COLUMNS } from "@/lib/csv/student-import";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +15,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const ROSTER_EXAMPLE_ROW = [
+  "REG-001",
+  "Jordan",
+  "Lee",
+  "2012-03-15",
+  "8",
+  "Pine Cabin",
+  "Peanuts",
+  "EpiPen as needed",
+  "Asthma",
+  "Taylor Lee",
+  "taylor@example.com",
+  "555-010-1000",
+  "Chris Lee",
+  "555-010-1001",
+  "Aunt",
+  "chris@example.com",
+];
 
 type ImportRosterDialogProps = {
   open: boolean;
@@ -67,15 +88,24 @@ export function ImportRosterDialog({
         <DialogHeader>
           <DialogTitle>Import roster CSV</DialogTitle>
           <DialogDescription>
-            Upload a CSV using the Waypoint roster format. See{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              docs/ROSTER_CSV_FORMAT.md
-            </code>{" "}
-            for column headers.
+            Upload a UTF-8 CSV with a header row. Team names must match an
+            existing team in the active session.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <CsvFormatHelper
+            columns={ROSTER_CSV_COLUMNS}
+            exampleRow={ROSTER_EXAMPLE_ROW}
+            filename="roster-import-template.csv"
+            notes={
+              <p className="text-sm text-muted-foreground">
+                Required: <code>first_name</code>, <code>last_name</code>. Other
+                columns are optional. Phones need 10–15 digits.
+              </p>
+            }
+          />
+
           <input
             ref={inputRef}
             type="file"

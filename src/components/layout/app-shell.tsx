@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { Toaster } from "@/components/ui/sonner";
 import type { UserRole } from "@/generated/prisma/browser";
 
 type NavItem = {
@@ -42,7 +41,6 @@ export function AppShell({ children, navItems, user }: AppShellProps) {
         </main>
         <MobileNav items={navItems} />
       </div>
-      <Toaster richColors position="top-center" />
     </div>
   );
 }

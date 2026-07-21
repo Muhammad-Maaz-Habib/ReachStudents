@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { CsvFormatHelper } from "@/components/design-system/csv-format-helper";
+import { STAFF_CSV_COLUMNS } from "@/lib/csv/staff-import";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +15,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const STAFF_EXAMPLE_ROW = [
+  "Ava",
+  "Nguyen",
+  "STAFF",
+  "ava.nguyen@demo.camp",
+  "555-020-0001",
+  "Pre-Med",
+  "Sam Nguyen",
+  "555-020-0002",
+  "Jordan Lee",
+  "555-020-0003",
+  "Shellfish",
+  "Vegetarian",
+  "",
+];
 
 type ImportStaffDialogProps = {
   open: boolean;
@@ -88,16 +106,26 @@ export function ImportStaffDialog({
         <DialogHeader>
           <DialogTitle>Import staff CSV</DialogTitle>
           <DialogDescription>
-            Upload a CSV using the staff directory format. See{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              docs/STAFF_CSV_FORMAT.md
-            </code>{" "}
-            for column headers. New accounts get a temporary password and must
+            Upload a UTF-8 CSV. New accounts get a temporary password and must
             change it on first login.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <CsvFormatHelper
+            columns={STAFF_CSV_COLUMNS}
+            exampleRow={STAFF_EXAMPLE_ROW}
+            filename="staff-import-template.csv"
+            notes={
+              <p className="text-sm text-muted-foreground">
+                Required: <code>first_name</code>, <code>last_name</code>,{" "}
+                <code>role</code> (<code>STAFF</code>, <code>NURSE</code>, or{" "}
+                <code>SESSION_ADMIN</code>), and <code>email</code>. Team names
+                must match the active session.
+              </p>
+            }
+          />
+
           <input
             ref={inputRef}
             type="file"

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   BookOpen,
   Calendar,
+  Plus,
   RefreshCw,
   Upload,
   UserCog,
@@ -19,6 +20,7 @@ import { StatusBadge } from "@/components/design-system/status-badge";
 import { CertificationAlertsPanel } from "@/components/staff/certification-alerts-panel";
 import { StaffTeamEditor } from "@/components/staff/staff-team-editor";
 import { ImportStaffDialog } from "@/components/staff/import-staff-dialog";
+import { StaffFormDialog } from "@/components/staff/staff-form-dialog";
 import { DeactivateStaffButton } from "@/components/staff/deactivate-staff-button";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +95,7 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
   const [myShiftId, setMyShiftId] = useState("");
   const [targetShiftId, setTargetShiftId] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
 
   async function loadRoster() {
     const response = await fetch("/api/staff/shifts");
@@ -244,9 +247,18 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
       {tab === "directory" && (
         <div className="space-y-4">
           {canManage && (
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
+                className="min-h-11"
+                onClick={() => setAddStaffOpen(true)}
+              >
+                <Plus className="size-4" aria-hidden />
+                Add staff
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 className="min-h-11"
                 onClick={() => setImportOpen(true)}
               >
@@ -354,6 +366,12 @@ export function StaffHub({ canManage, canViewCertAlerts }: StaffHubProps) {
             open={importOpen}
             onOpenChange={setImportOpen}
             onImported={() => void loadAll()}
+          />
+          <StaffFormDialog
+            open={addStaffOpen}
+            onOpenChange={setAddStaffOpen}
+            teams={availableTeams}
+            onCreated={() => void loadAll()}
           />
         </div>
       )}

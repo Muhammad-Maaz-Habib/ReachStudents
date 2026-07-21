@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UserRole } from "@/generated/prisma/browser";
 
 export const staffShiftSchema = z.object({
   userId: z.string().min(1),
@@ -30,3 +31,25 @@ export const staffResourceSchema = z.object({
   category: z.string().min(1),
   url: z.string().url().optional().or(z.literal("")),
 });
+
+export const staffFormSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  role: z.enum([
+    UserRole.STAFF,
+    UserRole.NURSE,
+    UserRole.SESSION_ADMIN,
+  ]),
+  email: z.string().trim().email("Valid email is required"),
+  phone: z.string().optional(),
+  teamId: z.string().optional(),
+  emergencyContact1Name: z.string().optional(),
+  emergencyContact1Phone: z.string().optional(),
+  emergencyContact2Name: z.string().optional(),
+  emergencyContact2Phone: z.string().optional(),
+  foodAllergy: z.string().optional(),
+  dietaryRestriction: z.string().optional(),
+  dietaryOther: z.string().optional(),
+});
+
+export type StaffFormInput = z.infer<typeof staffFormSchema>;

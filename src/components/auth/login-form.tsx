@@ -24,10 +24,12 @@ export function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors({});
+    setFormError(null);
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
@@ -56,8 +58,8 @@ export function LoginForm() {
 
     setIsLoading(false);
 
-    if (result?.error) {
-      toast.error("Invalid email or password");
+    if (result?.error || result?.ok === false) {
+      setFormError("Invalid email or password");
       return;
     }
 
@@ -76,6 +78,14 @@ export function LoginForm() {
       </CardHeader>
       <form onSubmit={onSubmit}>
         <CardContent className="space-y-4">
+          {formError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {formError}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -85,7 +95,10 @@ export function LoginForm() {
               autoComplete="email"
               placeholder="you@camp.org"
               className="min-h-11"
-              aria-invalid={!!errors.email}
+              aria-invalid={!!errors.email || !!formError}
+              onChange={() => {
+                if (formError) setFormError(null);
+              }}
             />
             {errors.email && (
               <p className="text-sm text-destructive">{errors.email}</p>
@@ -107,7 +120,10 @@ export function LoginForm() {
               type="password"
               autoComplete="current-password"
               className="min-h-11"
-              aria-invalid={!!errors.password}
+              aria-invalid={!!errors.password || !!formError}
+              onChange={() => {
+                if (formError) setFormError(null);
+              }}
             />
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password}</p>
