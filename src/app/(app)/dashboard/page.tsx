@@ -9,10 +9,10 @@ import { getMissingStudentAlerts } from "@/lib/alerts/missing-students";
 import { PageHeader } from "@/components/design-system/page-header";
 import { WhosHereList } from "@/components/checkin/whos-here-list";
 import { ActivityDistributionChart } from "@/components/dashboard/activity-distribution-chart";
-import { StatusBadge } from "@/components/design-system/status-badge";
+import { DashboardStatCards } from "@/components/dashboard/dashboard-stat-cards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { Users, AlertTriangle, MapPin } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { MissingAlertNotifier } from "@/components/alerts/missing-alert-notifier";
 import { cn } from "@/lib/utils";
 
@@ -39,33 +39,6 @@ export default async function DashboardPage() {
     (sum, alert) => sum + alert.students.length,
     0,
   );
-
-  const stats = [
-    {
-      label: "Checked in now",
-      value: whosHere.total,
-      icon: MapPin,
-      status: "success" as const,
-    },
-    {
-      label: "Missing from activity",
-      value: missingCount,
-      icon: AlertTriangle,
-      status: missingCount > 0 ? ("danger" as const) : ("success" as const),
-    },
-    {
-      label: "Students",
-      value: studentCount,
-      icon: Users,
-      status: "info" as const,
-    },
-    {
-      label: "Teams",
-      value: teamCount,
-      icon: Users,
-      status: "neutral" as const,
-    },
-  ];
 
   return (
     <div className="space-y-8">
@@ -110,33 +83,23 @@ export default async function DashboardPage() {
               </div>
             ))}
             <Link
-              href="/schedule"
+              href="/checkin/missing"
               className={cn(buttonVariants({ variant: "outline" }), "min-h-11")}
             >
-              View schedule
+              View all missing
             </Link>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.label} className="rounded-2xl shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-              <stat.icon className="size-4 text-muted-foreground" aria-hidden />
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold">{stat.value}</p>
-              <div className="mt-2">
-                <StatusBadge status={stat.status} label="Live" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <DashboardStatCards
+        initial={{
+          checkedInNow: whosHere.total,
+          missingCount,
+          studentCount,
+          teamCount,
+        }}
+      />
 
       <ActivityDistributionChart
         initialSlices={distribution.slices}

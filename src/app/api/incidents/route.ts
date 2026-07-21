@@ -7,6 +7,10 @@ import { PermissionResource } from "@/generated/prisma/browser";
 import { prisma } from "@/lib/prisma";
 import { canFileIncidentForStudent } from "@/lib/health/student-access";
 import { deliverParentMessage } from "@/lib/messaging/parent-delivery";
+import {
+  deliverIncidentExternalEmail,
+  parseNotifyEmails,
+} from "@/lib/messaging/incident-external-email";
 import { incidentSchema } from "@/lib/validations/health";
 import { AUDIT_RESOURCES, logAudit } from "@/lib/audit/log";
 
@@ -168,6 +172,30 @@ export async function POST(request: Request) {
     }
   }
 
+  const externalEmails = parseNotifyEmails(parsed.data.additionalNotifyEmails);
+  let externalEmailsSent = 0;
+  if (externalEmails.length > 0) {
+    const orgName =
+      incident.students[0]?.session.organization.name ?? "Waypoint";
+    const studentNames = incident.students.map(
+      (student) => `${student.firstName} ${student.lastName}`,
+    );
+    const senderName = session.user.name ?? session.user.email ?? "Staff";
+
+    for (const email of externalEmails) {
+      const result = await deliverIncidentExternalEmail({
+        to: email,
+        organizationName: orgName,
+        studentNames,
+        incidentTitle: incident.title,
+        severity: incident.severity,
+        senderName,
+        incidentId: incident.id,
+      });
+      if (result.ok) externalEmailsSent += 1;
+    }
+  }
+
   logAudit({
     organizationId: session.user.organizationId,
     userId: session.user.id,
@@ -177,8 +205,12 @@ export async function POST(request: Request) {
     metadata: {
       severity: incident.severity,
       studentCount: parsed.data.studentIds.length,
+      externalEmailsSent,
     },
   });
 
-  return NextResponse.json({ id: incident.id });
+  return NextResponse.json({
+    id: incident.id,
+    externalEmailsSent,
+  });
 }

@@ -25,6 +25,8 @@ export const incidentSchema = z.object({
   sourceParentMessageId: z.string().optional(),
   notifyParent: z.boolean().optional(),
   parentMessageBody: z.string().optional(),
+  /** Free-text emails (comma/space separated) beyond the linked guardian. */
+  additionalNotifyEmails: z.string().optional(),
 });
 
 export const incidentUpdateSchema = z.object({

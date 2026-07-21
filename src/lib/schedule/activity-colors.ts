@@ -36,3 +36,24 @@ export function normalizeActivityColor(
   if (color && /^#[0-9A-Fa-f]{6}$/.test(color)) return color;
   return ACTIVITY_COLOR_PALETTE[fallbackIndex % ACTIVITY_COLOR_PALETTE.length];
 }
+
+/** Stable palette index from an activity id (same id → same color). */
+export function colorIndexFromId(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return hash % ACTIVITY_COLOR_PALETTE.length;
+}
+
+/**
+ * Color for charts/calendar: prefer stored Activity.color, otherwise a
+ * deterministic palette pick from the activity id so slices stay distinct
+ * and match across dashboard + schedule.
+ */
+export function colorForActivity(
+  activityId: string,
+  storedColor?: string | null,
+) {
+  return normalizeActivityColor(storedColor, colorIndexFromId(activityId));
+}

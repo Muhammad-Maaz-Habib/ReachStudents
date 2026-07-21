@@ -4,7 +4,8 @@ import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
-import { normalizeActivityColor } from "@/lib/schedule/activity-colors";
+import { colorForActivity } from "@/lib/schedule/activity-colors";
+import { ensureSessionActivityColors } from "@/lib/attendance/activity-distribution";
 import { activityCalendarDisplay } from "@/lib/validations/activity";
 import { ScheduleBuilder } from "@/components/schedule/schedule-builder";
 
@@ -13,6 +14,8 @@ export default async function SchedulePage() {
   if (!session?.user?.organizationId) redirect("/onboarding");
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
+  await ensureSessionActivityColors(campSession.id);
+
   const [canEdit, activities, teams] = await Promise.all([
     hasPermission(
       session.user.organizationId,
@@ -32,8 +35,8 @@ export default async function SchedulePage() {
     }),
   ]);
 
-  const initialEvents = activities.map((activity, index) => {
-    const color = normalizeActivityColor(activity.color, index);
+  const initialEvents = activities.map((activity) => {
+    const color = colorForActivity(activity.id, activity.color);
     const display = activityCalendarDisplay({
       name: activity.name,
       startTime: activity.startTime,

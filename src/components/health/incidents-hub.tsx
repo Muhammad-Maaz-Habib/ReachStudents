@@ -20,8 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-type StudentOption = { id: string; name: string };
+import {
+  StudentMultiPicker,
+  type StudentPickerOption,
+} from "@/components/health/student-multi-picker";
 
 type Incident = {
   id: string;
@@ -38,16 +40,14 @@ type Incident = {
 
 type IncidentsHubProps = {
   canEdit: boolean;
-  students: StudentOption[];
+  students: StudentPickerOption[];
 };
 
 export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
   const router = useRouter();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>(
-    students[0] ? [students[0].id] : [],
-  );
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -55,6 +55,7 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
   const [notifyParent, setNotifyParent] = useState(false);
   const [severityHintDismissed, setSeverityHintDismissed] = useState(false);
   const [parentMessage, setParentMessage] = useState("");
+  const [additionalNotifyEmails, setAdditionalNotifyEmails] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [showHighSeverityConfirm, setShowHighSeverityConfirm] = useState(false);
 
@@ -76,25 +77,14 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
     }
   }
 
-  function toggleStudent(id: string) {
-    setSelectedStudents((current) =>
-      current.includes(id)
-        ? current.filter((studentId) => studentId !== id)
-        : [...current, id],
-    );
-  }
-
   async function submitIncident(skipHighSeverityCheck = false) {
-    if (
-      !skipHighSeverityCheck &&
-      severity === "HIGH" &&
-      !notifyParent
-    ) {
+    if (!skipHighSeverityCheck && severity === "HIGH" && !notifyParent) {
       setShowHighSeverityConfirm(true);
       return;
     }
 
     if (!title.trim() || !description.trim() || selectedStudents.length === 0) {
+      toast.error("Add a title, description, and at least one student");
       return;
     }
     setIsSaving(true);
@@ -110,30 +100,49 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
         studentIds: selectedStudents,
         notifyParent,
         parentMessageBody: notifyParent ? parentMessage : undefined,
+        additionalNotifyEmails: additionalNotifyEmails.trim() || undefined,
       }),
     });
 
     setIsSaving(false);
     setShowHighSeverityConfirm(false);
     if (!response.ok) {
-      toast.error("Could not file incident");
+      const data = await response.json().catch(() => ({}));
+      toast.error(
+        typeof data.error === "string" ? data.error : "Could not file incident",
+      );
       return;
     }
 
-    toast.success(
-      notifyParent
-        ? "Incident filed — parent notified via app link (no sensitive content in SMS/email)"
-        : "Incident filed",
-    );
+    const data = (await response.json()) as {
+      id: string;
+      externalEmailsSent?: number;
+    };
+
+    const parts = ["Incident filed"];
+    if (notifyParent) {
+      parts.push("parent notified via app link");
+    }
+    if ((data.externalEmailsSent ?? 0) > 0) {
+      parts.push(
+        `extra email sent to ${data.externalEmailsSent} address${data.externalEmailsSent === 1 ? "" : "es"}`,
+      );
+    } else if (additionalNotifyEmails.trim()) {
+      parts.push("extra email queued (check email config if not received)");
+    }
+
+    toast.success(parts.join(" — "));
     setTitle("");
     setDescription("");
     setLocation("");
     setParentMessage("");
+    setAdditionalNotifyEmails("");
+    setSelectedStudents([]);
     router.refresh();
     const reload = await fetch("/api/incidents");
     if (reload.ok) {
-      const data = await reload.json();
-      setIncidents(data.incidents ?? []);
+      const reloadData = await reload.json();
+      setIncidents(reloadData.incidents ?? []);
     }
   }
 
@@ -161,7 +170,8 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
           Severity does <strong>not</strong> trigger automatic parent SMS, admin alerts, or
           routing. &quot;Notify parent&quot; is a manual checkbox only. HIGH severity
           pre-checks the box as a <strong>suggestion</strong> — staff can still uncheck it.
-          Auto-routing by severity is planned for a later release.
+          Extra emails use the same privacy rules as parent incident notices (link only, no
+          full report body).
         </p>
       </div>
 
@@ -172,26 +182,11 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
           </CardHeader>
           <CardContent>
             <form onSubmit={createIncident} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Students involved</Label>
-                <div className="flex flex-wrap gap-2">
-                  {students.map((student) => {
-                    const active = selectedStudents.includes(student.id);
-                    return (
-                      <button
-                        key={student.id}
-                        type="button"
-                        className={`rounded-xl border px-3 py-2 text-sm ${
-                          active ? "border-primary bg-primary/10" : "bg-muted/30"
-                        }`}
-                        onClick={() => toggleStudent(student.id)}
-                      >
-                        {student.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <StudentMultiPicker
+                students={students}
+                value={selectedStudents}
+                onChange={setSelectedStudents}
+              />
               <div className="space-y-2">
                 <Label htmlFor="incident-title">Title</Label>
                 <Input
@@ -264,6 +259,26 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
                   />
                 </div>
               )}
+              <div className="space-y-2">
+                <Label htmlFor="extra-email">Also email this report to</Label>
+                <Input
+                  id="extra-email"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={additionalNotifyEmails}
+                  onChange={(event) =>
+                    setAdditionalNotifyEmails(event.target.value)
+                  }
+                  placeholder="school.contact@example.org"
+                  className="min-h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional. Separate from the guardian on file. Sends a privacy-safe
+                  notification with a link to view details in Waypoint (not the full
+                  report body). Comma-separate multiple addresses if needed.
+                </p>
+              </div>
               <Button type="submit" className="min-h-11" disabled={isSaving}>
                 {isSaving ? "Filing..." : "File incident"}
               </Button>

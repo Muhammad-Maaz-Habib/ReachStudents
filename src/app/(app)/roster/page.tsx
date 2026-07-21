@@ -35,6 +35,8 @@ async function RosterContent({
     staffId:
       typeof searchParams.staffId === "string" ? searchParams.staffId : undefined,
   });
+  const view =
+    typeof searchParams.view === "string" ? searchParams.view : undefined;
 
   const [roster, canEdit] = await Promise.all([
     getRosterData(session.user.organizationId, query),
@@ -59,6 +61,7 @@ async function RosterContent({
       initialGrade={query.grade}
       initialHasAllergy={query.hasAllergy}
       initialStaffId={query.staffId}
+      initialView={view === "teams" ? "teams" : "students"}
     />
   );
 }

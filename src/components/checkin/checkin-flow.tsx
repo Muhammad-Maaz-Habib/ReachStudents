@@ -93,6 +93,7 @@ export function CheckInFlow({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busyStudentId, setBusyStudentId] = useState<string | null>(null);
   const [activities, setActivities] = useState(initialActivities);
   const [activityId, setActivityId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,6 +115,17 @@ export function CheckInFlow({
   useEffect(() => {
     setActivities(initialActivities);
   }, [initialActivities]);
+
+  useEffect(() => {
+    setOpenMap(
+      new Map(
+        initialOpen.map((checkIn) => [
+          scopeKey(checkIn.studentId, checkIn.activityId),
+          checkIn,
+        ]),
+      ),
+    );
+  }, [initialOpen]);
 
   function handleActivityCreated(activity: CreatedActivity) {
     setActivities((current) => {
@@ -169,40 +181,47 @@ export function CheckInFlow({
     );
   }, [deferredQuery, students]);
 
-  const selected = students.find((student) => student.id === selectedId);
-  const selectedScope = selectedId
-    ? scopeKey(selectedId, activityId)
-    : undefined;
-  const selectedOpen = selectedScope ? openMap.get(selectedScope) : undefined;
-  const isCheckedIn = !!selectedOpen;
-
   const activeActivity = activities.find((activity) => activity.id === activityId);
 
-  async function handleToggle() {
-    if (!selected) return;
+  async function toggleStudent(student: StudentRow) {
+    if (busyStudentId) return;
 
-    const type = isCheckedIn ? "check_out" : "check_in";
+    const key = scopeKey(student.id, activityId);
+    const isIn = openMap.has(key);
+    const type = isIn ? "check_out" : "check_in";
+
+    setBusyStudentId(student.id);
+    setSelectedId(student.id);
+    setStatusMessage(
+      `${type === "check_in" ? "Checking in" : "Checking out"} ${student.firstName} ${student.lastName}`,
+    );
+
     const result = await performCheckIn({
-      studentId: selected.id,
+      studentId: student.id,
       type,
       staffId,
       activityId,
     });
+    setBusyStudentId(null);
 
     if (result.offline || !("error" in result && result.error)) {
-      const next = new Map(openMap);
-      const key = scopeKey(selected.id, activityId);
-      if (type === "check_in") {
-        next.set(key, {
-          id: `pending-${Date.now()}`,
-          studentId: selected.id,
-          activityId,
-          checkedInAt: new Date().toISOString(),
-        });
-      } else {
-        next.delete(key);
-      }
-      setOpenMap(next);
+      setOpenMap((current) => {
+        const next = new Map(current);
+        if (type === "check_in") {
+          next.set(key, {
+            id: `pending-${Date.now()}`,
+            studentId: student.id,
+            activityId,
+            checkedInAt: new Date().toISOString(),
+          });
+        } else {
+          next.delete(key);
+        }
+        return next;
+      });
+      setStatusMessage(
+        `${student.firstName} ${student.lastName} ${type === "check_in" ? "checked in" : "checked out"}`,
+      );
     }
   }
 
@@ -348,99 +367,91 @@ export function CheckInFlow({
         />
       </div>
 
-      {selected && (
-        <Card className="rounded-2xl border-2 border-primary/20 bg-primary/5">
-          <CardContent className="space-y-4 p-5">
-            <div className="flex items-center gap-4">
-              <Avatar className="size-14 rounded-2xl">
-                <AvatarFallback className="rounded-2xl text-lg">
-                  {selected.firstName.charAt(0)}
-                  {selected.lastName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="text-xl font-semibold">
-                  {selected.firstName} {selected.lastName}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {activeActivity?.name ?? "General campus"}
-                </p>
-                <div className="mt-2">
-                  <MedicalFlagBadge student={selected} />
-                </div>
-              </div>
-              <StatusBadge
-                status={isCheckedIn ? "success" : "neutral"}
-                label={isCheckedIn ? "Checked in" : "Not here"}
-              />
-            </div>
-
-            <Button
-              className={cn(
-                "min-h-14 w-full text-base font-semibold",
-                isCheckedIn
-                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                  : "",
-              )}
-              onClick={() => void handleToggle()}
-              aria-label={
-                isCheckedIn
-                  ? `Check out ${selected.firstName} ${selected.lastName}`
-                  : `Check in ${selected.firstName} ${selected.lastName}`
-              }
-            >
-              {isCheckedIn ? (
-                <>
-                  <LogOut className="size-5" aria-hidden />
-                  Check out
-                </>
-              ) : (
-                <>
-                  <LogIn className="size-5" aria-hidden />
-                  Check in
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       <ul className="grid gap-2" aria-label="Student roster">
         {filtered.map((student) => {
           const checkedIn = openMap.has(scopeKey(student.id, activityId));
-          const active = selectedId === student.id;
+          const selected = selectedId === student.id;
+          const busy = busyStudentId === student.id;
 
           return (
             <li key={student.id}>
-            <button
-              type="button"
-              className={cn(
-                "flex min-h-14 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors",
-                active ? "border-primary bg-primary/10" : "hover:bg-muted/50",
-              )}
-              onClick={() => setSelectedId(student.id)}
-              aria-pressed={active}
-              aria-label={`${student.firstName} ${student.lastName}, ${checkedIn ? "checked in" : "not checked in"}`}
-            >
-              <Avatar className="size-10 rounded-xl">
-                <AvatarFallback className="rounded-xl text-sm">
-                  {student.firstName.charAt(0)}
-                  {student.lastName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">
-                  {student.firstName} {student.lastName}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {student.team?.name ?? "Unassigned"}
-                </p>
+              <div
+                className={cn(
+                  "rounded-2xl border transition-colors",
+                  selected ? "border-primary bg-primary/5" : "bg-background",
+                  checkedIn && "border-emerald-600/40 bg-emerald-500/5",
+                )}
+              >
+                <div className="flex min-h-14 items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-1 text-left"
+                    onClick={() =>
+                      setSelectedId((current) =>
+                        current === student.id ? null : student.id,
+                      )
+                    }
+                    aria-pressed={selected}
+                    aria-label={`${student.firstName} ${student.lastName}, show medical flags`}
+                  >
+                    <Avatar className="size-10 shrink-0 rounded-xl">
+                      <AvatarFallback className="rounded-xl text-sm">
+                        {student.firstName.charAt(0)}
+                        {student.lastName.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">
+                        {student.firstName} {student.lastName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {student.team?.name ?? "Unassigned"}
+                      </p>
+                    </div>
+                  </button>
+
+                  <StatusBadge
+                    status={checkedIn ? "success" : "neutral"}
+                    label={checkedIn ? "In" : "Out"}
+                    className="hidden shrink-0 sm:inline-flex"
+                  />
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={checkedIn ? "secondary" : "default"}
+                    className="min-h-11 shrink-0 gap-1.5 px-3 text-sm font-semibold"
+                    disabled={busy || !!busyStudentId}
+                    onClick={() => void toggleStudent(student)}
+                    aria-label={
+                      checkedIn
+                        ? `Check out ${student.firstName} ${student.lastName}`
+                        : `Check in ${student.firstName} ${student.lastName}`
+                    }
+                  >
+                    {checkedIn ? (
+                      <>
+                        <LogOut className="size-4" aria-hidden />
+                        Check out
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="size-4" aria-hidden />
+                        Check in
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {selected && (
+                  <div className="border-t px-4 py-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Medical flags
+                    </p>
+                    <MedicalFlagBadge student={student} />
+                  </div>
+                )}
               </div>
-              <StatusBadge
-                status={checkedIn ? "success" : "neutral"}
-                label={checkedIn ? "In" : "Out"}
-              />
-            </button>
             </li>
           );
         })}
