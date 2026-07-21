@@ -29,6 +29,7 @@ export type CreatedActivity = {
   endTime: string;
   teamId: string | null;
   color: string | null;
+  isOpenEnded?: boolean;
 };
 
 type QuickCreateActivityDialogProps = {
@@ -40,11 +41,6 @@ type QuickCreateActivityDialogProps = {
   triggerLabel?: string;
   showTrigger?: boolean;
 };
-
-function toDatetimeLocalValue(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export function QuickCreateActivityDialog({
   open,
@@ -58,26 +54,14 @@ export function QuickCreateActivityDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
   const [teamId, setTeamId] = useState("");
-  const [startLocal, setStartLocal] = useState(() =>
-    toDatetimeLocalValue(new Date()),
-  );
-  const [durationMinutes, setDurationMinutes] = useState(60);
 
   function resetDefaults() {
     setName("");
     setTeamId("");
-    setStartLocal(toDatetimeLocalValue(new Date()));
-    setDurationMinutes(60);
   }
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const start = new Date(startLocal);
-    if (Number.isNaN(start.getTime())) {
-      toast.error("Invalid start time");
-      return;
-    }
-    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
     const color = normalizeActivityColor(nextActivityColor(existingColors));
 
     setIsSaving(true);
@@ -87,8 +71,7 @@ export function QuickCreateActivityDialog({
       body: JSON.stringify({
         name: name.trim(),
         teamId: teamId || undefined,
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
+        isOpenEnded: true,
         overdueAlertMinutes: 15,
         color,
       }),
@@ -101,7 +84,9 @@ export function QuickCreateActivityDialog({
       return;
     }
 
-    const data = (await response.json()) as { activity: CreatedActivity & { teamId?: string | null } };
+    const data = (await response.json()) as {
+      activity: CreatedActivity & { teamId?: string | null; isOpenEnded?: boolean };
+    };
     toast.success(`Started "${data.activity.name}"`);
     onCreated({
       id: data.activity.id,
@@ -117,6 +102,7 @@ export function QuickCreateActivityDialog({
           : new Date(data.activity.endTime).toISOString(),
       teamId: data.activity.teamId ?? (teamId || null),
       color: data.activity.color ?? color,
+      isOpenEnded: data.activity.isOpenEnded ?? true,
     });
     resetDefaults();
     onOpenChange(false);
@@ -149,8 +135,9 @@ export function QuickCreateActivityDialog({
           <DialogHeader>
             <DialogTitle>Quick create activity</DialogTitle>
             <DialogDescription>
-              Creates a real schedule activity (same as /schedule) so you can
-              start roll call immediately. Defaults to starting now.
+              Starts now as an ongoing roll-call activity (same data as
+              /schedule). Missing check-in alerts use the default 15-minute
+              threshold — adjust later on the schedule if needed.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={(event) => void onSubmit(event)} className="space-y-4">
@@ -181,35 +168,6 @@ export function QuickCreateActivityDialog({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="quick-activity-start">Starts</Label>
-                <Input
-                  id="quick-activity-start"
-                  type="datetime-local"
-                  className="min-h-11"
-                  value={startLocal}
-                  onChange={(event) => setStartLocal(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quick-activity-duration">Duration (minutes)</Label>
-                <Input
-                  id="quick-activity-duration"
-                  type="number"
-                  min={15}
-                  max={480}
-                  step={15}
-                  className="min-h-11"
-                  value={durationMinutes}
-                  onChange={(event) =>
-                    setDurationMinutes(Number(event.target.value) || 60)
-                  }
-                  required
-                />
-              </div>
             </div>
             <DialogFooter>
               <Button type="submit" className="min-h-11" disabled={isSaving}>

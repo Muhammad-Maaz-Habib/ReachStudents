@@ -4,7 +4,7 @@ import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
-import { activityFormSchema } from "@/lib/validations/activity";
+import { activityFormSchema, openEndedActivityEnd } from "@/lib/validations/activity";
 import { assignTeamToActivity } from "@/lib/schedule/activities";
 import {
   nextActivityColor,
@@ -90,6 +90,21 @@ export async function POST(request: Request) {
     data.color ?? nextActivityColor(existingColors.map((row) => row.color)),
   );
 
+  const isOpenEnded = Boolean(data.isOpenEnded);
+  const startTime = isOpenEnded
+    ? new Date()
+    : new Date(data.startTime!);
+  const endTime = isOpenEnded
+    ? openEndedActivityEnd(campSession.endDate)
+    : new Date(data.endTime!);
+
+  if (!(endTime > startTime)) {
+    return NextResponse.json(
+      { error: "End time must be after start time" },
+      { status: 400 },
+    );
+  }
+
   const activity = await prisma.activity.create({
     data: {
       sessionId: campSession.id,
@@ -99,8 +114,9 @@ export async function POST(request: Request) {
       capacity: data.capacity ? Number(data.capacity) : null,
       color,
       teamId: data.teamId || null,
-      startTime: new Date(data.startTime),
-      endTime: new Date(data.endTime),
+      startTime,
+      endTime,
+      isOpenEnded,
       overdueAlertMinutes: data.overdueAlertMinutes,
     },
   });

@@ -77,6 +77,7 @@ export default async function ActivityRollCallPage({
         endTime: true,
         teamId: true,
         color: true,
+        isOpenEnded: true,
       },
     }),
     prisma.team.findMany({
@@ -102,6 +103,7 @@ export default async function ActivityRollCallPage({
         endTime: activity.endTime.toISOString(),
         teamId: activity.teamId,
         color: activity.color,
+        isOpenEnded: activity.isOpenEnded,
       }))}
       openCheckIns={openCheckIns.map((checkIn) => ({
         ...checkIn,

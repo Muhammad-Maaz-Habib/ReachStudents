@@ -321,6 +321,8 @@ model Activity {
   capacity             Int?
   startTime            DateTime
   endTime              DateTime
+  /** Roll-call / ad-hoc activities without a planned end; endTime is a soft bound (usually session end). */
+  isOpenEnded          Boolean  @default(false)
   color                String?
   teamId               String?
   overdueAlertMinutes  Int      @default(15)

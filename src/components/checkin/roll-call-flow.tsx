@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ClipboardCheck, Search } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
-import { MedicalFlagBadge } from "@/components/roster/medical-flag-badge";
 import { OfflineBanner } from "@/components/checkin/offline-banner";
 import {
   QuickCreateActivityDialog,
@@ -35,6 +34,7 @@ type ActivityOption = {
   endTime: string;
   teamId: string | null;
   color: string | null;
+  isOpenEnded?: boolean;
 };
 
 type OpenCheckIn = {
@@ -133,6 +133,7 @@ export function RollCallFlow({
       endTime: activity.endTime,
       teamId: activity.teamId,
       color: activity.color,
+      isOpenEnded: activity.isOpenEnded ?? true,
     };
     setActivities((current) => {
       if (current.some((row) => row.id === next.id)) return current;
@@ -229,11 +230,8 @@ export function RollCallFlow({
           {activities.map((activity) => (
             <option key={activity.id} value={activity.id}>
               {activity.name}
-              {activity.location ? ` · ${activity.location}` : ""} ·{" "}
-              {new Date(activity.startTime).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {activity.location ? ` · ${activity.location}` : ""}
+              {activity.isOpenEnded ? " · Ongoing" : ""}
             </option>
           ))}
         </select>
@@ -313,17 +311,10 @@ export function RollCallFlow({
                       <p className="font-medium">
                         {student.firstName} {student.lastName}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {student.team?.name ?? "Unassigned"}
-                        {student.grade ? ` · Grade ${student.grade}` : ""}
-                      </p>
-                      <div className="mt-1">
-                        <MedicalFlagBadge student={student} />
-                      </div>
                     </div>
                     <StatusBadge
                       status={checkedIn ? "success" : "neutral"}
-                      label={checkedIn ? "Present" : "Tap in"}
+                      label={checkedIn ? "Present" : "Absent"}
                     />
                   </button>
                 </li>

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { normalizeActivityColor } from "@/lib/schedule/activity-colors";
+import { activityCalendarDisplay } from "@/lib/validations/activity";
 import { ScheduleBuilder } from "@/components/schedule/schedule-builder";
 
 export default async function SchedulePage() {
@@ -33,11 +34,17 @@ export default async function SchedulePage() {
 
   const initialEvents = activities.map((activity, index) => {
     const color = normalizeActivityColor(activity.color, index);
+    const display = activityCalendarDisplay({
+      name: activity.name,
+      startTime: activity.startTime,
+      endTime: activity.endTime,
+      isOpenEnded: activity.isOpenEnded,
+    });
     return {
       id: activity.id,
-      title: activity.name,
-      start: activity.startTime.toISOString(),
-      end: activity.endTime.toISOString(),
+      title: display.title,
+      start: display.start.toISOString(),
+      end: display.end.toISOString(),
       backgroundColor: color,
       borderColor: color,
       textColor: "#ffffff",
@@ -47,6 +54,7 @@ export default async function SchedulePage() {
         overdueAlertMinutes: activity.overdueAlertMinutes,
         seriesId: activity.seriesId,
         color,
+        isOpenEnded: activity.isOpenEnded,
       },
     };
   });
