@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { activityOptionLabel } from "@/lib/validations/activity";
 import { buttonVariants } from "@/components/ui/button";
 
 type CheckInRow = {
@@ -178,14 +179,32 @@ export function WhosHereList({
             }
           >
             <SelectTrigger className="min-h-11 w-full">
-              <SelectValue placeholder="All locations" />
+              <SelectValue placeholder="All locations">
+                {(value) => {
+                  if (!value || value === "all") return "All check-in types";
+                  if (value === "general") return "General campus only";
+                  if (value === "not_checked_in") return "Not checked in";
+                  const activity = activities.find((row) => row.id === value);
+                  return activity ? activity.name : "All locations";
+                }}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All check-in types</SelectItem>
-              <SelectItem value="general">General campus only</SelectItem>
-              <SelectItem value="not_checked_in">Not checked in</SelectItem>
+              <SelectItem value="all" label="All check-in types">
+                All check-in types
+              </SelectItem>
+              <SelectItem value="general" label="General campus only">
+                General campus only
+              </SelectItem>
+              <SelectItem value="not_checked_in" label="Not checked in">
+                Not checked in
+              </SelectItem>
               {activities.map((activity) => (
-                <SelectItem key={activity.id} value={activity.id}>
+                <SelectItem
+                  key={activity.id}
+                  value={activity.id}
+                  label={activity.name}
+                >
                   {activity.name}
                 </SelectItem>
               ))}

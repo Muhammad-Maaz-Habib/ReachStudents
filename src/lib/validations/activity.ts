@@ -50,6 +50,57 @@ export const activitySeriesSchema = z.object({
 export type ActivityFormInput = z.infer<typeof activityFormSchema>;
 export type ActivitySeriesInput = z.infer<typeof activitySeriesSchema>;
 
+const TIME_FMT: Intl.DateTimeFormatOptions = {
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+const DATE_TIME_FMT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+export function activityOptionLabel(activity: {
+  name: string;
+  location?: string | null;
+  isOpenEnded?: boolean;
+}) {
+  const parts = [activity.name];
+  if (activity.location) parts.push(activity.location);
+  if (activity.isOpenEnded) parts.push("Ongoing");
+  return parts.join(" · ");
+}
+
+/** Human-readable activity window for check-in / schedule summaries. */
+export function formatActivityTimeRange(activity: {
+  startTime: string | Date;
+  endTime: string | Date;
+  isOpenEnded?: boolean;
+}) {
+  const start = new Date(activity.startTime);
+  const end = new Date(activity.endTime);
+
+  if (activity.isOpenEnded) {
+    return `Started ${start.toLocaleTimeString([], TIME_FMT)} · Ongoing`;
+  }
+
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
+  if (sameDay) {
+    if (end > start) {
+      return `${start.toLocaleTimeString([], TIME_FMT)} – ${end.toLocaleTimeString([], TIME_FMT)}`;
+    }
+    return `${start.toLocaleTimeString([], TIME_FMT)} – ${end.toLocaleTimeString([], TIME_FMT)} (overnight)`;
+  }
+
+  return `${start.toLocaleString([], DATE_TIME_FMT)} – ${end.toLocaleString([], DATE_TIME_FMT)}`;
+}
+
 /** Soft end bound for open-ended roll-call activities (end of session day UTC). */
 export function openEndedActivityEnd(sessionEndDate: Date, startTime = new Date()) {
   const sessionEnd = new Date(sessionEndDate);

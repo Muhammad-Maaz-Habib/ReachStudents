@@ -25,6 +25,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  activityOptionLabel,
+  formatActivityTimeRange,
+} from "@/lib/validations/activity";
 
 type StudentRow = {
   id: string;
@@ -42,6 +46,7 @@ type ActivityOption = {
   startTime: string;
   endTime: string;
   color?: string | null;
+  isOpenEnded?: boolean;
 };
 
 type OpenCheckIn = {
@@ -121,6 +126,7 @@ export function CheckInFlow({
           startTime: activity.startTime,
           endTime: activity.endTime,
           color: activity.color,
+          isOpenEnded: activity.isOpenEnded ?? true,
         },
         ...current,
       ];
@@ -294,24 +300,35 @@ export function CheckInFlow({
           className="min-h-12 w-full text-base"
           aria-label="Check-in location"
         >
-          <SelectValue placeholder="Check-in location" />
+          <SelectValue placeholder="Check-in location">
+            {(value) => {
+              if (!value || value === "general") return "General campus";
+              const activity = activities.find((row) => row.id === value);
+              return activity
+                ? activityOptionLabel(activity)
+                : "Check-in location";
+            }}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="general">General campus</SelectItem>
-          {activities.map((activity) => (
-            <SelectItem key={activity.id} value={activity.id}>
-              {activity.name}
-              {activity.location ? ` · ${activity.location}` : ""}
-            </SelectItem>
-          ))}
+          <SelectItem value="general" label="General campus">
+            General campus
+          </SelectItem>
+          {activities.map((activity) => {
+            const label = activityOptionLabel(activity);
+            return (
+              <SelectItem key={activity.id} value={activity.id} label={label}>
+                {label}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
 
       {activeActivity && (
         <p className="text-sm text-muted-foreground">
           Activity check-in: {activeActivity.name} (
-          {new Date(activeActivity.startTime).toLocaleTimeString()} –{" "}
-          {new Date(activeActivity.endTime).toLocaleTimeString()})
+          {formatActivityTimeRange(activeActivity)})
         </p>
       )}
 

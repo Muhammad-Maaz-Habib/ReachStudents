@@ -84,6 +84,7 @@ export default async function CheckInPage() {
         startTime: activity.startTime.toISOString(),
         endTime: activity.endTime.toISOString(),
         color: activity.color,
+        isOpenEnded: activity.isOpenEnded,
       }))}
       openCheckIns={openCheckIns.map((checkIn) => ({
         ...checkIn,
