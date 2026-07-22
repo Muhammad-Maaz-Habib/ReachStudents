@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { EmptyState } from "@/components/design-system/empty-state";
+import { DeleteIncidentButton } from "@/components/health/delete-incident-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,10 +41,15 @@ type Incident = {
 
 type IncidentsHubProps = {
   canEdit: boolean;
+  canDelete?: boolean;
   students: StudentPickerOption[];
 };
 
-export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
+export function IncidentsHub({
+  canEdit,
+  canDelete = false,
+  students,
+}: IncidentsHubProps) {
   const router = useRouter();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,15 +66,16 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
   const [showHighSeverityConfirm, setShowHighSeverityConfirm] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      const response = await fetch("/api/incidents");
-      if (!response.ok) return;
-      const data = await response.json();
-      setIncidents(data.incidents ?? []);
-      setIsLoading(false);
-    }
-    void load();
+    void loadIncidents();
   }, []);
+
+  async function loadIncidents() {
+    const response = await fetch("/api/incidents");
+    if (!response.ok) return;
+    const data = await response.json();
+    setIncidents(data.incidents ?? []);
+    setIsLoading(false);
+  }
 
   function onSeverityChange(value: string) {
     setSeverity(value);
@@ -300,13 +307,27 @@ export function IncidentsHub({ canEdit, students }: IncidentsHubProps) {
           {incidents.map((incident) => (
             <Card key={incident.id} className="rounded-2xl">
               <CardContent className="space-y-2 pt-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold">{incident.title}</p>
-                  <StatusBadge
-                    status={severityStatus(incident.severity)}
-                    label={incident.severity}
-                  />
-                  <StatusBadge status="info" label={incident.status} />
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold">{incident.title}</p>
+                    <StatusBadge
+                      status={severityStatus(incident.severity)}
+                      label={incident.severity}
+                    />
+                    <StatusBadge status="info" label={incident.status} />
+                  </div>
+                  {canDelete && (
+                    <DeleteIncidentButton
+                      incidentId={incident.id}
+                      incidentTitle={incident.title}
+                      hasParentThread={incident.hasParentThread}
+                      onDeleted={() => {
+                        setIncidents((current) =>
+                          current.filter((row) => row.id !== incident.id),
+                        );
+                      }}
+                    />
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {incident.students.join(", ")} · {incident.reportedByName} ·{" "}

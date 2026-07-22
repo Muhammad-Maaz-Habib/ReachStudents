@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/constants";
 import { requireOrganizationSession } from "@/lib/org";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
@@ -26,6 +27,8 @@ export default async function IncidentsPage() {
   ]);
   if (!canView) redirect("/dashboard");
 
+  const canDelete = ADMIN_ROLES.includes(session.user.role);
+
   const campSession = await requireOrganizationSession(session.user.organizationId);
   const students = await prisma.student.findMany({
     where: { sessionId: campSession.id },
@@ -36,6 +39,7 @@ export default async function IncidentsPage() {
   return (
     <IncidentsHub
       canEdit={canEdit}
+      canDelete={canDelete}
       students={students.map((student) => ({
         id: student.id,
         name: `${student.firstName} ${student.lastName}`,

@@ -37,6 +37,7 @@ export default async function SchedulePage() {
   ]);
 
   const canImportCsv = ADMIN_ROLES.includes(session.user.role);
+  const canDelete = ADMIN_ROLES.includes(session.user.role);
   const initialEvents = activities.map((activity) => {
     const color = colorForActivity(activity.id, activity.color);
     const display = activityCalendarDisplay({
@@ -73,6 +74,7 @@ export default async function SchedulePage() {
       teams={teams}
       canEdit={canEdit}
       canImportCsv={canImportCsv}
+      canDelete={canDelete}
     />
   );
 }

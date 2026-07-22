@@ -32,6 +32,10 @@ async function WhosHereContent({
     typeof searchParams.activityId === "string"
       ? searchParams.activityId
       : undefined;
+  const location =
+    typeof searchParams.location === "string"
+      ? searchParams.location
+      : undefined;
 
   if (mode === "rollcall") {
     const rollCall = await getRollCallData(campSession.id, { teamId });
@@ -60,6 +64,7 @@ async function WhosHereContent({
     q,
     teamId,
     activityId,
+    location,
   });
 
   return (
@@ -79,6 +84,7 @@ async function WhosHereContent({
       initialQuery={q ?? ""}
       initialTeamId={teamId}
       initialActivityId={activityId}
+      initialLocation={location}
     />
   );
 }

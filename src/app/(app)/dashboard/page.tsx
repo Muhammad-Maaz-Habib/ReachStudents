@@ -5,9 +5,11 @@ import { requireOrganizationSession } from "@/lib/org";
 import { prisma } from "@/lib/prisma";
 import { getWhosHereData } from "@/lib/attendance/whos-here";
 import { getActivityDistribution } from "@/lib/attendance/activity-distribution";
+import { getLocationDistribution } from "@/lib/attendance/location-distribution";
 import { getMissingStudentAlerts } from "@/lib/alerts/missing-students";
 import { PageHeader } from "@/components/design-system/page-header";
 import { WhosHereList } from "@/components/checkin/whos-here-list";
+import { CampusMap } from "@/components/checkin/campus-map";
 import { ActivityDistributionChart } from "@/components/dashboard/activity-distribution-chart";
 import { DashboardStatCards } from "@/components/dashboard/dashboard-stat-cards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,13 +28,14 @@ export default async function DashboardPage() {
 
   const campSession = await requireOrganizationSession(session.user.organizationId);
 
-  const [whosHere, teamCount, studentCount, missingAlerts, distribution] =
+  const [whosHere, teamCount, studentCount, missingAlerts, distribution, locations] =
     await Promise.all([
       getWhosHereData(campSession.id),
       prisma.team.count({ where: { sessionId: campSession.id } }),
       prisma.student.count({ where: { sessionId: campSession.id } }),
       getMissingStudentAlerts(campSession.id),
       getActivityDistribution(campSession.id),
+      getLocationDistribution(campSession.id),
     ]);
 
   const missingCount = missingAlerts.reduce(
@@ -104,6 +107,12 @@ export default async function DashboardPage() {
       <ActivityDistributionChart
         initialSlices={distribution.slices}
         initialTotalStudents={distribution.totalStudents}
+      />
+
+      <CampusMap
+        initialSlices={locations.slices}
+        initialCheckedInCount={locations.checkedInCount}
+        initialTotalStudents={locations.totalStudents}
       />
 
       <Card className="rounded-2xl">

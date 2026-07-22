@@ -3,7 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, LogIn, LogOut, Users, ClipboardCheck, Plus } from "lucide-react";
+import { Search, LogIn, LogOut, Users, ClipboardCheck, Plus, MapPinned } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { MedicalFlagBadge } from "@/components/roster/medical-flag-badge";
 import { OfflineBanner } from "@/components/checkin/offline-banner";
@@ -291,6 +291,13 @@ export function CheckInFlow({
             >
               <Users className="size-4" aria-hidden />
               Who&apos;s here
+            </Link>
+            <Link
+              href="/checkin/map"
+              className={cn(buttonVariants({ variant: "outline" }), "min-h-11")}
+            >
+              <MapPinned className="size-4" aria-hidden />
+              Campus map
             </Link>
             <StatusBadge
               status={isOnline ? "success" : "warning"}

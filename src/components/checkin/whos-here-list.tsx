@@ -53,6 +53,7 @@ type WhosHereListProps = {
   initialQuery: string;
   initialTeamId?: string;
   initialActivityId?: string;
+  initialLocation?: string;
   previewLimit?: number;
   showViewAllLink?: boolean;
   compact?: boolean;
@@ -67,6 +68,7 @@ export function WhosHereList({
   initialQuery,
   initialTeamId,
   initialActivityId,
+  initialLocation,
   previewLimit,
   showViewAllLink = false,
   compact = false,
@@ -82,11 +84,18 @@ export function WhosHereList({
     if (initialActivityId === "not_checked_in") {
       return `${total} not checked in · ${sessionName}`;
     }
+    if (initialLocation) {
+      const label =
+        initialLocation === "__unknown__"
+          ? "No location set"
+          : initialLocation;
+      return `${total} at ${label} · ${sessionName}`;
+    }
     if (previewLimit && total > previewLimit) {
       return `Showing ${previewLimit} of ${total} checked in`;
     }
     return `${total} checked in · ${sessionName}`;
-  }, [previewLimit, total, sessionName, initialActivityId]);
+  }, [previewLimit, total, sessionName, initialActivityId, initialLocation]);
 
   function updateFilters(updates: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -133,6 +142,25 @@ export function WhosHereList({
         </div>
       )}
 
+      {!previewLimit && initialLocation && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-muted/30 px-4 py-3 text-sm">
+          <p>
+            Filtered by campus location:{" "}
+            <span className="font-medium text-foreground">
+              {initialLocation === "__unknown__"
+                ? "No location set"
+                : initialLocation}
+            </span>
+          </p>
+          <Link
+            href="/checkin/map"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "min-h-9")}
+          >
+            Back to campus map
+          </Link>
+        </div>
+      )}
+
       {!previewLimit && (
         <div className="grid gap-3 lg:grid-cols-3">
           <form
@@ -175,6 +203,7 @@ export function WhosHereList({
             onValueChange={(value) =>
               updateFilters({
                 activityId: !value || value === "all" ? undefined : value,
+                location: undefined,
               })
             }
           >

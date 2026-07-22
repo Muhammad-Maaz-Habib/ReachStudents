@@ -16,6 +16,7 @@ import type {
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ImportScheduleDialog } from "@/components/schedule/import-schedule-dialog";
+import { DeleteActivityControls } from "@/components/schedule/delete-activity-controls";
 import { RecurringSeriesTrigger } from "@/components/schedule/recurring-series-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,6 +63,7 @@ type ScheduleBuilderProps = {
   teams: TeamOption[];
   canEdit: boolean;
   canImportCsv?: boolean;
+  canDelete?: boolean;
 };
 
 type EditState = {
@@ -141,6 +143,7 @@ export function ScheduleBuilder({
   teams,
   canEdit,
   canImportCsv = false,
+  canDelete = false,
 }: ScheduleBuilderProps) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -591,7 +594,23 @@ export function ScheduleBuilder({
                   }
                 />
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                {canDelete && editState && (
+                  <DeleteActivityControls
+                    activityId={editState.id}
+                    activityName={editState.name}
+                    seriesId={editState.seriesId}
+                    onDeleted={(deletedIds) => {
+                      const removed = new Set(deletedIds);
+                      setEvents((current) =>
+                        current.filter((event) => !removed.has(event.id)),
+                      );
+                      setEditOpen(false);
+                      setEditState(null);
+                      router.refresh();
+                    }}
+                  />
+                )}
                 <Button type="submit" className="min-h-11" disabled={isSaving}>
                   {isSaving ? "Saving..." : "Save changes"}
                 </Button>

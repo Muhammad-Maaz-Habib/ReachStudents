@@ -11,7 +11,9 @@ import {
   parseStartTimeMinutes,
   type ScheduleCsvRow,
 } from "@/lib/csv/schedule-import";
+import type { ActivityDeleteScope } from "@/lib/schedule/activity-delete";
 
+export type { ActivityDeleteScope };
 export type OneOffActivityInput = {
   name: string;
   description?: string;
@@ -267,4 +269,102 @@ export async function importScheduleRecord({
     activityIds: [activity.id],
     instanceCount: 1,
   };
+}
+
+export type ActivityDeleteImpact = {
+  scope: ActivityDeleteScope;
+  activityIds: string[];
+  activityCount: number;
+  checkInCount: number;
+  seriesId: string | null;
+  activityName: string;
+};
+
+async function resolveDeleteTargets(
+  sessionId: string,
+  activityId: string,
+  scope: ActivityDeleteScope,
+): Promise<ActivityDeleteImpact> {
+  const activity = await prisma.activity.findFirst({
+    where: { id: activityId, sessionId },
+  });
+  if (!activity) {
+    throw new Error("Activity not found");
+  }
+
+  let activityIds: string[] = [activity.id];
+
+  if (scope !== "instance") {
+    if (!activity.seriesId) {
+      throw new Error("This activity is not part of a recurring series");
+    }
+
+    if (scope === "future") {
+      const future = await prisma.activity.findMany({
+        where: {
+          sessionId,
+          seriesId: activity.seriesId,
+          startTime: { gte: activity.startTime },
+        },
+        select: { id: true },
+      });
+      activityIds = future.map((row) => row.id);
+    } else {
+      const all = await prisma.activity.findMany({
+        where: { sessionId, seriesId: activity.seriesId },
+        select: { id: true },
+      });
+      activityIds = all.map((row) => row.id);
+    }
+  }
+
+  const checkInCount = await prisma.checkIn.count({
+    where: { activityId: { in: activityIds } },
+  });
+
+  return {
+    scope,
+    activityIds,
+    activityCount: activityIds.length,
+    checkInCount,
+    seriesId: activity.seriesId,
+    activityName: activity.name,
+  };
+}
+
+export async function getActivityDeleteImpact(
+  sessionId: string,
+  activityId: string,
+  scope: ActivityDeleteScope,
+) {
+  return resolveDeleteTargets(sessionId, activityId, scope);
+}
+
+/**
+ * Hard-deletes activity instance(s). Check-ins are preserved with activityId
+ * cleared (schema onDelete: SetNull). Schedules and missing-alert dispatches cascade.
+ */
+export async function deleteActivities(
+  sessionId: string,
+  activityId: string,
+  scope: ActivityDeleteScope,
+) {
+  const impact = await resolveDeleteTargets(sessionId, activityId, scope);
+
+  await prisma.activity.deleteMany({
+    where: { id: { in: impact.activityIds }, sessionId },
+  });
+
+  if (impact.seriesId) {
+    const remaining = await prisma.activity.count({
+      where: { sessionId, seriesId: impact.seriesId },
+    });
+    if (remaining === 0 || scope === "series") {
+      await prisma.activitySeries.deleteMany({
+        where: { id: impact.seriesId, sessionId },
+      });
+    }
+  }
+
+  return impact;
 }
