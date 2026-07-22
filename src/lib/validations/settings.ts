@@ -52,3 +52,16 @@ export const teamUpdateSchema = z.object({
     .nullable()
     .optional(),
 });
+
+export const mentorGroupCreateSchema = z.object({
+  sessionId: z.string().min(1),
+  name: z.string().trim().min(1).max(120),
+  mentorId: z.string().min(1),
+  studentIds: z.array(z.string().min(1)).optional().default([]),
+});
+
+export const mentorGroupUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  mentorId: z.string().min(1).optional(),
+  studentIds: z.array(z.string().min(1)).optional(),
+});

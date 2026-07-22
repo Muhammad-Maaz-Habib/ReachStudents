@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/constants";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { FormsHub } from "@/components/forms/forms-hub";
@@ -24,5 +25,7 @@ export default async function FormsPage() {
   ]);
   if (!canView) redirect("/dashboard");
 
-  return <FormsHub canEdit={canEdit} />;
+  const canDelete = ADMIN_ROLES.includes(session.user.role);
+
+  return <FormsHub canEdit={canEdit} canDelete={canDelete} />;
 }

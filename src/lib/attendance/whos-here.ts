@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { UNKNOWN_LOCATION_KEY } from "@/lib/attendance/location-distribution";
+import {
+  GENERAL_LOCATION_KEY,
+  UNKNOWN_LOCATION_KEY,
+  resolveCampusZone,
+} from "@/lib/attendance/location-distribution";
 
 export type WhosHereQuery = {
   q?: string;
@@ -8,7 +12,7 @@ export type WhosHereQuery = {
   /** Activity id, "general", or "not_checked_in" */
   activityId?: string;
   /**
-   * Campus map zone filter: normalized location key, or UNKNOWN_LOCATION_KEY.
+   * Campus map zone filter: normalized location/activity-name key, or "general".
    * Uses the same latest-open-check-in-per-student rule as the map/donut.
    */
   location?: string;
@@ -200,11 +204,15 @@ async function getWhosHereByLocation(
   }
 
   let matched = [...latestByStudent.values()].filter((checkIn) => {
-    const raw = checkIn.activity?.location?.trim() ?? "";
-    if (locationKey === UNKNOWN_LOCATION_KEY) {
-      return !raw;
+    const zone = resolveCampusZone(checkIn.activity);
+    // Treat legacy __unknown__ links as general campus.
+    if (
+      locationKey === GENERAL_LOCATION_KEY ||
+      locationKey === UNKNOWN_LOCATION_KEY
+    ) {
+      return zone.key === GENERAL_LOCATION_KEY;
     }
-    return raw.toLowerCase() === locationKey.toLowerCase();
+    return zone.key === locationKey.toLowerCase();
   });
 
   if (query.teamId) {

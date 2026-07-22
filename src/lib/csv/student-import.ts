@@ -5,6 +5,7 @@ export const ROSTER_CSV_COLUMNS = [
   "date_of_birth",
   "grade",
   "team",
+  "mentor_group",
   "allergies",
   "medications",
   "medical_conditions",
@@ -24,6 +25,7 @@ export type RosterCsvRow = {
   date_of_birth?: string;
   grade?: string;
   team?: string;
+  mentor_group?: string;
   allergies?: string;
   medications?: string;
   medical_conditions?: string;

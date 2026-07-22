@@ -7,6 +7,7 @@ import { FileText, Send, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { EmptyState } from "@/components/design-system/empty-state";
 import { CustomFormBuilderDialog } from "@/components/forms/custom-form-builder-dialog";
+import { DeleteFormButton } from "@/components/forms/delete-form-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,9 +34,10 @@ type CustomTemplateRow = {
 
 type FormsHubProps = {
   canEdit: boolean;
+  canDelete?: boolean;
 };
 
-export function FormsHub({ canEdit }: FormsHubProps) {
+export function FormsHub({ canEdit, canDelete = false }: FormsHubProps) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>([]);
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateRow[]>(
@@ -210,17 +212,30 @@ export function FormsHub({ canEdit }: FormsHubProps) {
                     {template.description ? ` · ${template.description}` : ""}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  disabled={publishingId === template.id}
-                  onClick={() => void publishCustomTemplate(template.id)}
-                >
-                  {publishingId === template.id
-                    ? "Publishing..."
-                    : "Publish to session"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={publishingId === template.id}
+                      onClick={() => void publishCustomTemplate(template.id)}
+                    >
+                      {publishingId === template.id
+                        ? "Publishing..."
+                        : "Publish to session"}
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <DeleteFormButton
+                      formId={template.id}
+                      formTitle={template.title}
+                      submissionCount={0}
+                      isTemplate
+                      onDeleted={() => void loadForms()}
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -249,18 +264,28 @@ export function FormsHub({ canEdit }: FormsHubProps) {
                       : ""}
                   </p>
                 </div>
-                {canEdit && form.missingCount > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
-                    disabled={remindingId === form.id}
-                    onClick={() => void sendReminders(form.id)}
-                  >
-                    <Send className="size-4" aria-hidden />
-                    Remind missing ({form.missingCount})
-                  </Button>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && form.missingCount > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      disabled={remindingId === form.id}
+                      onClick={() => void sendReminders(form.id)}
+                    >
+                      <Send className="size-4" aria-hidden />
+                      Remind missing ({form.missingCount})
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <DeleteFormButton
+                      formId={form.id}
+                      formTitle={form.title}
+                      submissionCount={form.completedCount}
+                      onDeleted={() => void loadForms()}
+                    />
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

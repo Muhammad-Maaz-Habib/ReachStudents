@@ -82,6 +82,7 @@ model CampSession {
   staffShifts  StaffShift[]
   shiftSwaps   ShiftSwapRequest[]
   tripLocationCheckIns TripLocationCheckIn[]
+  mentorGroups MentorGroup[]
 
   @@index([organizationId])
 }
@@ -104,6 +105,24 @@ model Team {
   chatChannels ChatChannel[]
 
   @@index([sessionId])
+}
+
+/** Day-to-day mentor cohort — independent from academic Team/program. */
+model MentorGroup {
+  id        String   @id @default(cuid())
+  sessionId String
+  name      String
+  mentorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session  CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  mentor   User        @relation("MentorGroupMentor", fields: [mentorId], references: [id], onDelete: Restrict)
+  students Student[]
+
+  @@unique([sessionId, name])
+  @@index([sessionId])
+  @@index([mentorId])
 }
 
 model User {
@@ -132,6 +151,7 @@ model User {
   accounts       Account[]
   authSessions   AuthSession[]
   teamAssignments TeamStaffAssignment[]
+  mentoredGroups MentorGroup[] @relation("MentorGroupMentor")
   parentLinks    StudentParent[]
   checkIns       CheckIn[]       @relation("CheckInStaff")
   incidents      IncidentReport[] @relation("IncidentReporter")
@@ -226,6 +246,7 @@ model Student {
   id        String    @id @default(cuid())
   sessionId String
   teamId    String?
+  mentorGroupId String?
   firstName String
   lastName  String
   dateOfBirth DateTime?
@@ -240,6 +261,7 @@ model Student {
 
   session           CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   team              Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  mentorGroup       MentorGroup? @relation(fields: [mentorGroupId], references: [id], onDelete: SetNull)
   emergencyContacts EmergencyContact[]
   medicalProfile    MedicalProfile?
   parents           StudentParent[]
@@ -253,6 +275,7 @@ model Student {
 
   @@index([sessionId])
   @@index([teamId])
+  @@index([mentorGroupId])
   @@unique([sessionId, externalId])
 }
 

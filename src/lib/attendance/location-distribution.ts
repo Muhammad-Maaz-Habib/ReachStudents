@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
-/** URL/query key for open check-ins with no usable Activity.location */
-export const UNKNOWN_LOCATION_KEY = "__unknown__";
+/** Open check-in with no activity (matches donut "General campus"). */
+export const GENERAL_LOCATION_KEY = "general";
 
 const ZONE_COLORS = [
   "#2D6A4F",
@@ -15,7 +15,7 @@ const ZONE_COLORS = [
 ];
 
 export type LocationDistributionSlice = {
-  /** Normalized location key, or UNKNOWN_LOCATION_KEY */
+  /** Normalized zone key (location, activity name, or GENERAL_LOCATION_KEY) */
   key: string;
   label: string;
   count: number;
@@ -24,18 +24,32 @@ export type LocationDistributionSlice = {
   activityIds: string[];
 };
 
-function normalizeLocationKey(raw: string | null | undefined) {
-  const trimmed = raw?.trim();
-  if (!trimmed) return null;
-  return trimmed.toLowerCase();
-}
-
-function displayLocation(raw: string) {
-  return raw.trim();
+/**
+ * Zone label used by campus map — aligned with donut / Who's Here:
+ * prefer Activity.location when set, otherwise Activity.name, else General campus.
+ * (Donut slices by activity id+name; Who's Here shows name, with @ location if set.)
+ */
+export function resolveCampusZone(activity: {
+  id: string;
+  name: string;
+  location: string | null;
+} | null): { key: string; label: string } {
+  if (!activity) {
+    return { key: GENERAL_LOCATION_KEY, label: "General campus" };
+  }
+  const location = activity.location?.trim();
+  if (location) {
+    return { key: location.toLowerCase(), label: location };
+  }
+  const name = activity.name.trim();
+  if (name) {
+    return { key: name.toLowerCase(), label: name };
+  }
+  return { key: GENERAL_LOCATION_KEY, label: "General campus" };
 }
 
 function colorForLocationKey(key: string) {
-  if (key === UNKNOWN_LOCATION_KEY) return "#6B7280";
+  if (key === GENERAL_LOCATION_KEY) return "#1B4332";
   let hash = 0;
   for (let i = 0; i < key.length; i += 1) {
     hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
@@ -44,9 +58,9 @@ function colorForLocationKey(key: string) {
 }
 
 /**
- * Student headcount by Activity.location for open check-ins.
+ * Student headcount by campus zone for open check-ins.
  * Same attendance definition as the dashboard donut (latest open check-in per student).
- * Does not use GPS — location comes only from the activity the student checked into.
+ * Does not use GPS.
  */
 export async function getLocationDistribution(sessionId: string): Promise<{
   totalStudents: number;
@@ -76,7 +90,7 @@ export async function getLocationDistribution(sessionId: string): Promise<{
     }),
     prisma.activity.findMany({
       where: { sessionId },
-      select: { id: true, location: true },
+      select: { id: true, name: true, location: true },
     }),
   ]);
 
@@ -86,7 +100,7 @@ export async function getLocationDistribution(sessionId: string): Promise<{
     string,
     {
       activityId: string | null;
-      location: string | null;
+      activity: { id: string; name: string; location: string | null } | null;
     }
   >();
 
@@ -94,11 +108,11 @@ export async function getLocationDistribution(sessionId: string): Promise<{
     if (latestByStudent.has(checkIn.studentId)) continue;
     latestByStudent.set(checkIn.studentId, {
       activityId: checkIn.activityId,
-      location: checkIn.activity?.location ?? null,
+      activity: checkIn.activity,
     });
   }
 
-  const byLocation = new Map<
+  const byZone = new Map<
     string,
     {
       label: string;
@@ -107,43 +121,42 @@ export async function getLocationDistribution(sessionId: string): Promise<{
     }
   >();
 
-  // Seed zones from named activity locations so the campus map shows the layout
-  // even when a zone currently has zero students.
+  // Seed zones from schedule activities so empty campus spots still appear.
   for (const activity of activities) {
-    const key = normalizeLocationKey(activity.location);
-    if (!key || !activity.location) continue;
-    if (!byLocation.has(key)) {
-      byLocation.set(key, {
-        label: displayLocation(activity.location),
+    const zone = resolveCampusZone(activity);
+    if (zone.key === GENERAL_LOCATION_KEY) continue;
+    if (!byZone.has(zone.key)) {
+      byZone.set(zone.key, {
+        label: zone.label,
         count: 0,
         activityIds: new Set(),
       });
     }
-    byLocation.get(key)!.activityIds.add(activity.id);
+    byZone.get(zone.key)!.activityIds.add(activity.id);
   }
 
-  let unknownCount = 0;
+  let generalCount = 0;
 
   for (const row of latestByStudent.values()) {
-    const key = normalizeLocationKey(row.location);
-    if (!key || !row.location?.trim()) {
-      unknownCount += 1;
+    const zone = resolveCampusZone(row.activity);
+    if (zone.key === GENERAL_LOCATION_KEY) {
+      generalCount += 1;
       continue;
     }
-    const existing = byLocation.get(key);
+    const existing = byZone.get(zone.key);
     if (existing) {
       existing.count += 1;
       if (row.activityId) existing.activityIds.add(row.activityId);
     } else {
-      byLocation.set(key, {
-        label: displayLocation(row.location),
+      byZone.set(zone.key, {
+        label: zone.label,
         count: 1,
         activityIds: new Set(row.activityId ? [row.activityId] : []),
       });
     }
   }
 
-  const slices: LocationDistributionSlice[] = [...byLocation.entries()].map(
+  const slices: LocationDistributionSlice[] = [...byZone.entries()].map(
     ([key, row]) => ({
       key,
       label: row.label,
@@ -155,12 +168,12 @@ export async function getLocationDistribution(sessionId: string): Promise<{
 
   slices.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 
-  if (unknownCount > 0) {
+  if (generalCount > 0) {
     slices.push({
-      key: UNKNOWN_LOCATION_KEY,
-      label: "No location set",
-      count: unknownCount,
-      color: colorForLocationKey(UNKNOWN_LOCATION_KEY),
+      key: GENERAL_LOCATION_KEY,
+      label: "General campus",
+      count: generalCount,
+      color: colorForLocationKey(GENERAL_LOCATION_KEY),
       activityIds: [],
     });
   }
@@ -172,3 +185,6 @@ export async function getLocationDistribution(sessionId: string): Promise<{
     updatedAt: new Date().toISOString(),
   };
 }
+
+/** @deprecated Use GENERAL_LOCATION_KEY — kept for older query links. */
+export const UNKNOWN_LOCATION_KEY = "__unknown__";

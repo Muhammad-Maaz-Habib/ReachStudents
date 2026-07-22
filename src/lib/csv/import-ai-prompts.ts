@@ -5,8 +5,8 @@ into a specific CSV format for import into an app called Waypoint. Please read
 the attached file and convert it into a CSV with exactly these column headers,
 in this order:
 
-first_name, last_name, date_of_birth, grade, team, allergies, medications,
-medical_conditions, guardian_name, guardian_email, guardian_phone,
+first_name, last_name, date_of_birth, grade, team, mentor_group, allergies,
+medications, medical_conditions, guardian_name, guardian_email, guardian_phone,
 emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
 emergency_contact_email
 
@@ -15,10 +15,14 @@ Rules:
   me which rows you skipped and why.
 - date_of_birth should be formatted as YYYY-MM-DD if present in the source data.
   Leave blank if not available.
-- "team" should map to whatever column represents the student's cabin, group,
-  program, or track in the source data. Tell me the full list of unique team
-  values you found, since these need to already exist as Teams in Waypoint
+- "team" should map to whatever column represents the student's academic
+  program, cabin, or track in the source data. Tell me the full list of unique
+  team values you found, since these need to already exist as Teams in Waypoint
   before I import.
+- "mentor_group" is optional and separate from team — it is the smaller
+  day-to-day mentor cohort (not the academic program). Leave blank if the
+  source has no such column. List unique mentor_group values found; they must
+  already exist as Mentor Groups in Waypoint before import.
 - Normalize all phone numbers to E.164 format (e.g. +14155551234). If a phone
   number can't be parsed, leave it blank and flag it as a warning.
 - If the source data doesn't have a separate emergency contact from the parent/
@@ -26,7 +30,8 @@ Rules:
 - Leave allergies, medications, and medical_conditions blank if not present —
   do not guess or infer these, since they're safety-critical.
 - After reformatting, give me a summary: total rows processed, rows skipped,
-  any unparseable phone numbers, and the full list of unique team names found.
+  any unparseable phone numbers, and the full lists of unique team and
+  mentor_group names found.
 - Output the result as a downloadable CSV file.`;
 
 export const STAFF_CSV_AI_PROMPT = `I have a spreadsheet of summer camp/conference staff members that I need

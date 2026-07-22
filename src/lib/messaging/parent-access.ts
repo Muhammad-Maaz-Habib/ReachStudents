@@ -2,6 +2,12 @@ import { UserRole } from "@/generated/prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { prisma } from "@/lib/prisma";
+import {
+  getStaffAssignedTeamIds,
+  getStaffMentoredGroupIds,
+  staffHasTeamOrMentorAccess,
+  studentTeamOrMentorWhere,
+} from "@/lib/staff/student-scope";
 
 const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SESSION_ADMIN];
 
@@ -36,15 +42,14 @@ export async function canAccessStudentMessaging(
       id: studentId,
       session: { organizationId },
     },
-    select: { teamId: true },
+    select: {
+      teamId: true,
+      mentorGroup: { select: { mentorId: true } },
+    },
   });
-  if (!student?.teamId) return false;
+  if (!student) return false;
 
-  const assignment = await prisma.teamStaffAssignment.findFirst({
-    where: { userId, teamId: student.teamId },
-    select: { id: true },
-  });
-  return !!assignment;
+  return staffHasTeamOrMentorAccess(userId, student);
 }
 
 export async function getAccessibleStudentIdsForStaff(
@@ -76,18 +81,13 @@ export async function getAccessibleStudentIdsForStaff(
   );
   if (!canMessage) return [];
 
-  const assignments = await prisma.teamStaffAssignment.findMany({
-    where: {
-      userId,
-      team: { sessionId },
-    },
-    select: { teamId: true },
-  });
-  const teamIds = assignments.map((assignment) => assignment.teamId);
-  if (teamIds.length === 0) return [];
+  const [teamIds, mentorGroupIds] = await Promise.all([
+    getStaffAssignedTeamIds(userId, sessionId),
+    getStaffMentoredGroupIds(userId, sessionId),
+  ]);
 
   const students = await prisma.student.findMany({
-    where: { sessionId, teamId: { in: teamIds } },
+    where: studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds),
     select: { id: true },
   });
   return students.map((student) => student.id);

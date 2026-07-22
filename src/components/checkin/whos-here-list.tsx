@@ -86,8 +86,8 @@ export function WhosHereList({
     }
     if (initialLocation) {
       const label =
-        initialLocation === "__unknown__"
-          ? "No location set"
+        initialLocation === "general" || initialLocation === "__unknown__"
+          ? "General campus"
           : initialLocation;
       return `${total} at ${label} · ${sessionName}`;
     }
@@ -147,8 +147,9 @@ export function WhosHereList({
           <p>
             Filtered by campus location:{" "}
             <span className="font-medium text-foreground">
-              {initialLocation === "__unknown__"
-                ? "No location set"
+              {initialLocation === "general" ||
+              initialLocation === "__unknown__"
+                ? "General campus"
                 : initialLocation}
             </span>
           </p>

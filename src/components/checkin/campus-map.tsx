@@ -53,8 +53,8 @@ export function CampusMap({
     );
   }
 
-  const namedZones = slices.filter((slice) => slice.key !== "__unknown__");
-  const unknownZone = slices.find((slice) => slice.key === "__unknown__");
+  const namedZones = slices.filter((slice) => slice.key !== "general");
+  const unknownZone = slices.find((slice) => slice.key === "general");
 
   return (
     <Card className="overflow-hidden rounded-2xl shadow-sm">
@@ -174,7 +174,7 @@ export function CampusMap({
                 <div>
                   <p className="font-semibold">{unknownZone.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    Checked in without an activity location
+                    Checked in without a named activity
                   </p>
                 </div>
                 <span className="inline-flex w-fit items-center gap-1.5 rounded-xl bg-muted px-2.5 py-1 text-sm font-semibold">

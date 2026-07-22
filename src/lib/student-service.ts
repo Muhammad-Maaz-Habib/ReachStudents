@@ -24,6 +24,7 @@ function normalizeInput(data: CreateStudentData) {
     grade: isCsv ? data.grade : data.grade,
     teamId: isCsv ? undefined : data.teamId,
     teamName: isCsv ? data.team : undefined,
+    mentorGroupName: isCsv ? data.mentor_group : undefined,
     allergies: isCsv ? data.allergies : data.allergies,
     medications: isCsv ? data.medications : data.medications,
     conditions: isCsv ? data.medical_conditions : data.conditions,
@@ -62,10 +63,10 @@ function validatePhones(input: ReturnType<typeof normalizeInput>) {
   };
 }
 
-// Deliberately excludes teamId/session: the CSV import path uses the unchecked
-// (scalar FK) form and adds `teamId` itself, while the manual-add path uses the
-// checked relational form (`session`/`team` connect). Mixing a scalar FK with
-// relation connects in one `data` object is invalid in Prisma.
+// Deliberately excludes teamId/mentorGroupId/session: the CSV import path uses
+// the unchecked (scalar FK) form and adds those FKs itself, while the manual-add
+// path uses the checked relational form (`session`/`team` connect). Mixing a
+// scalar FK with relation connects in one `data` object is invalid in Prisma.
 function buildStudentFields(
   input: ReturnType<typeof normalizeInput>,
   phones: { guardianPhone: string | null; emergencyContactPhone: string | null },
@@ -141,15 +142,22 @@ async function upsertEmergencyContact(
 export async function importStudentRecord({
   sessionId,
   teams,
+  mentorGroups = [],
   data,
 }: {
   sessionId: string;
   teams: { id: string; name: string }[];
+  mentorGroups?: { id: string; name: string }[];
   data: RosterCsvRow;
 }): Promise<ImportStudentResult> {
   const input = normalizeInput(data);
   const phones = validatePhones(input);
   let teamId: string | null = input.teamId ?? null;
+  const applyMentorGroup = Object.prototype.hasOwnProperty.call(
+    data,
+    "mentor_group",
+  );
+  let mentorGroupId: string | null | undefined = applyMentorGroup ? null : undefined;
 
   if (input.teamName) {
     const team = teams.find(
@@ -159,6 +167,17 @@ export async function importStudentRecord({
       throw new Error(`Unknown team "${input.teamName}"`);
     }
     teamId = team.id;
+  }
+
+  if (applyMentorGroup && input.mentorGroupName?.trim()) {
+    const group = mentorGroups.find(
+      (entry) =>
+        entry.name.toLowerCase() === input.mentorGroupName!.trim().toLowerCase(),
+    );
+    if (!group) {
+      throw new Error(`Unknown mentor_group "${input.mentorGroupName}"`);
+    }
+    mentorGroupId = group.id;
   }
 
   const dob = parseDateOfBirth(input.dateOfBirth ?? undefined);
@@ -177,7 +196,11 @@ export async function importStudentRecord({
       const student = await prisma.$transaction(async (tx) => {
         const updated = await tx.student.update({
           where: { id: existingByExternal.id },
-          data: { ...buildStudentFields(input, phones, dob), teamId },
+          data: {
+            ...buildStudentFields(input, phones, dob),
+            teamId,
+            ...(mentorGroupId !== undefined ? { mentorGroupId } : {}),
+          },
         });
         await upsertMedicalProfile(tx, updated.id, input);
         await upsertEmergencyContact(
@@ -219,6 +242,7 @@ export async function importStudentRecord({
       data: {
         sessionId,
         teamId,
+        mentorGroupId: mentorGroupId ?? null,
         ...buildStudentFields(input, phones, dob),
       },
     });

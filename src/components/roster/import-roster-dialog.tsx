@@ -24,6 +24,7 @@ const ROSTER_EXAMPLE_ROW = [
   "2012-03-15",
   "8",
   "Pine Cabin",
+  "Mentor Group A",
   "Peanuts",
   "EpiPen as needed",
   "Asthma",
@@ -89,8 +90,8 @@ export function ImportRosterDialog({
         <DialogHeader>
           <DialogTitle>Import roster CSV</DialogTitle>
           <DialogDescription>
-            Upload a UTF-8 CSV with a header row. Team names must match an
-            existing team in the active session.
+            Upload a UTF-8 CSV with a header row. Team and mentor_group names
+            must match existing values in the active session.
           </DialogDescription>
         </DialogHeader>
 

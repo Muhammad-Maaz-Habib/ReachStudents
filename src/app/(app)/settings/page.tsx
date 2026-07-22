@@ -10,7 +10,9 @@ import { PermissionMatrixEditor } from "@/components/settings/permission-matrix-
 import { DataRetentionPanel } from "@/components/settings/data-retention-panel";
 import { SessionsPanel } from "@/components/settings/sessions-panel";
 import { TeamsPanel } from "@/components/settings/teams-panel";
+import { MentorGroupsPanel } from "@/components/settings/mentor-groups-panel";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
+import { STAFF_ROLES } from "@/lib/constants";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -71,6 +73,50 @@ export default async function SettingsPage() {
       })
     : [];
 
+  const [initialMentorGroups, mentorStaffOptions, mentorStudentOptions] =
+    activeSession
+      ? await Promise.all([
+          prisma.mentorGroup.findMany({
+            where: { sessionId: activeSession.id },
+            include: {
+              mentor: {
+                select: { id: true, name: true, email: true, role: true },
+              },
+              students: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  teamId: true,
+                },
+                orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+              },
+              _count: { select: { students: true } },
+            },
+            orderBy: { name: "asc" },
+          }),
+          prisma.user.findMany({
+            where: {
+              organizationId: session.user.organizationId,
+              isActive: true,
+              role: { in: STAFF_ROLES },
+            },
+            select: { id: true, name: true, email: true, role: true },
+            orderBy: { name: "asc" },
+          }),
+          prisma.student.findMany({
+            where: { sessionId: activeSession.id },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              mentorGroupId: true,
+              team: { select: { name: true } },
+            },
+            orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          }),
+        ])
+      : [[], [], []];
   const sessionSummaries = sessions.map((campSession) => ({
     id: campSession.id,
     name: campSession.name,
@@ -85,7 +131,7 @@ export default async function SettingsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        description="Organization profile, sessions, teams, and permission matrix."
+        description="Organization profile, sessions, teams, mentor groups, and permission matrix."
       />
 
       <Card id="account" className="rounded-2xl scroll-mt-6">
@@ -148,6 +194,15 @@ export default async function SettingsPage() {
           initialTeams={initialTeams}
         />
       </div>
+
+      <MentorGroupsPanel
+        canEdit={canEditSettings}
+        sessions={sessionSummaries}
+        initialSessionId={activeSession?.id ?? null}
+        initialGroups={initialMentorGroups}
+        staffOptions={mentorStaffOptions}
+        studentOptions={mentorStudentOptions}
+      />
 
       <DataRetentionPanel
         canEdit={canEditSettings}

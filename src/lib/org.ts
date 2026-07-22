@@ -20,6 +20,10 @@ export async function getOrganizationSession(organizationId: string) {
           },
         },
       },
+      mentorGroups: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      },
     },
   });
 }

@@ -3,27 +3,21 @@ import { ADMIN_ROLES } from "@/lib/constants";
 import { hasPermission } from "@/lib/permissions";
 import { PermissionResource } from "@/generated/prisma/browser";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
+import {
+  getStaffAssignedTeamIds,
+  getStaffMentoredGroupIds,
+  staffHasTeamOrMentorAccess,
+  studentTeamOrMentorWhere,
+} from "@/lib/staff/student-scope";
 
-/** Team IDs the user is assigned to in the given camp session (empty = none). */
-export async function getStaffAssignedTeamIds(
-  userId: string,
-  sessionId: string,
-): Promise<string[]> {
-  const assignments = await prisma.teamStaffAssignment.findMany({
-    where: {
-      userId,
-      team: { sessionId },
-    },
-    select: { teamId: true },
-  });
-  return assignments.map((row) => row.teamId);
-}
+export { getStaffAssignedTeamIds };
 
 /**
  * Can this staff member check in/out a student?
  * Admins / nurses: any student in the org session.
- * Other staff: must have STUDENTS view + TeamStaffAssignment on the student's team.
- * Access is evaluated live from DB — no re-login required after assignment changes.
+ * Other staff: STUDENTS view + (TeamStaffAssignment on student's team OR
+ * assigned mentor of the student's MentorGroup). Access is live from DB.
  */
 export async function canCheckInStudent(
   userId: string,
@@ -49,33 +43,30 @@ export async function canCheckInStudent(
 
   const student = await prisma.student.findFirst({
     where: { id: studentId, session: { organizationId } },
-    select: { teamId: true },
+    select: {
+      teamId: true,
+      mentorGroup: { select: { mentorId: true } },
+    },
   });
-  if (!student?.teamId) return false;
+  if (!student) return false;
 
-  const assignment = await prisma.teamStaffAssignment.findFirst({
-    where: { userId, teamId: student.teamId },
-    select: { id: true },
-  });
-  return !!assignment;
+  return staffHasTeamOrMentorAccess(userId, student);
 }
 
-/** Student where filter for check-in roster — scoped to assigned teams for non-admin staff. */
+/** Student where filter for check-in roster — teams OR mentored groups. */
 export async function studentCheckInWhere(
   userId: string,
   role: UserRole,
   sessionId: string,
-): Promise<{ sessionId: string; teamId?: { in: string[] } }> {
+): Promise<Prisma.StudentWhereInput> {
   if (ADMIN_ROLES.includes(role) || role === UserRole.NURSE) {
     return { sessionId };
   }
 
-  const teamIds = await getStaffAssignedTeamIds(userId, sessionId);
-  if (teamIds.length === 0) {
-    return { sessionId, teamId: { in: [] as string[] } };
-  }
-  return {
-    sessionId,
-    teamId: { in: teamIds },
-  };
+  const [teamIds, mentorGroupIds] = await Promise.all([
+    getStaffAssignedTeamIds(userId, sessionId),
+    getStaffMentoredGroupIds(userId, sessionId),
+  ]);
+
+  return studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds);
 }

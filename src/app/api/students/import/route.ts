@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       const result = await importStudentRecord({
         sessionId: campSession.id,
         teams: campSession.teams,
+        mentorGroups: campSession.mentorGroups,
         data: row,
       });
 
