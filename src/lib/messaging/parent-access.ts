@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getStaffAssignedTeamIds,
   getStaffMentoredGroupIds,
+  getStaffAdvisedClubIds,
   staffHasTeamOrMentorAccess,
   studentTeamOrMentorWhere,
 } from "@/lib/staff/student-scope";
@@ -45,6 +46,7 @@ export async function canAccessStudentMessaging(
     select: {
       teamId: true,
       mentorGroup: { select: { mentorId: true } },
+      clubMemberships: { select: { clubId: true } },
     },
   });
   if (!student) return false;
@@ -81,13 +83,14 @@ export async function getAccessibleStudentIdsForStaff(
   );
   if (!canMessage) return [];
 
-  const [teamIds, mentorGroupIds] = await Promise.all([
+  const [teamIds, mentorGroupIds, clubIds] = await Promise.all([
     getStaffAssignedTeamIds(userId, sessionId),
     getStaffMentoredGroupIds(userId, sessionId),
+    getStaffAdvisedClubIds(userId, sessionId),
   ]);
 
   const students = await prisma.student.findMany({
-    where: studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds),
+    where: studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds, clubIds),
     select: { id: true },
   });
   return students.map((student) => student.id);

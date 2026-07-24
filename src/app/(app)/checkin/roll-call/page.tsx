@@ -46,7 +46,8 @@ export default async function ActivityRollCallPage({
     studentCheckInWhere(session.user.id, session.user.role, campSession.id),
   ]);
 
-  const [students, openCheckIns, activities, teams] = await Promise.all([
+  const [students, openCheckIns, activities, teams, mentorGroups] =
+    await Promise.all([
     prisma.student.findMany({
       where: studentWhere,
       select: {
@@ -55,6 +56,7 @@ export default async function ActivityRollCallPage({
         lastName: true,
         grade: true,
         team: { select: { id: true, name: true, color: true } },
+        mentorGroup: { select: { id: true, name: true } },
         medicalProfile: {
           select: { allergies: true, medications: true, conditions: true },
         },
@@ -85,6 +87,11 @@ export default async function ActivityRollCallPage({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.mentorGroup.findMany({
+      where: { sessionId: campSession.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -93,6 +100,7 @@ export default async function ActivityRollCallPage({
       sessionName={campSession.name}
       students={students}
       teams={teams}
+      mentorGroups={mentorGroups}
       canCreateActivity={canCreateActivity}
       initialActivityId={params.activityId ?? null}
       activities={activities.map((activity) => ({

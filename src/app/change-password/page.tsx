@@ -16,8 +16,8 @@ export default function ChangePasswordPage() {
             {session?.user?.email
               ? `Welcome, ${session.user.email}. `
               : ""}
-            Imported staff accounts must replace their temporary password before
-            continuing.
+            Accounts created with a temporary password must choose a new one
+            before continuing.
           </p>
         </CardHeader>
         <CardContent>

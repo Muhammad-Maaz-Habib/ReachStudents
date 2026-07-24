@@ -8,6 +8,9 @@ declare module "next-auth" {
       role: UserRole;
       organizationId: string | null;
       organizationName: string | null;
+      organizationLogoUrl: string | null;
+      organizationPrimaryColor: string | null;
+      organizationSecondaryColor: string | null;
       mustChangePassword: boolean;
     } & DefaultSession["user"];
   }
@@ -16,6 +19,9 @@ declare module "next-auth" {
     role: UserRole;
     organizationId: string | null;
     organizationName: string | null;
+    organizationLogoUrl: string | null;
+    organizationPrimaryColor: string | null;
+    organizationSecondaryColor: string | null;
     mustChangePassword: boolean;
   }
 }
@@ -25,6 +31,9 @@ declare module "next-auth/jwt" {
     role: UserRole;
     organizationId: string | null;
     organizationName: string | null;
+    organizationLogoUrl: string | null;
+    organizationPrimaryColor: string | null;
+    organizationSecondaryColor: string | null;
     mustChangePassword: boolean;
   }
 }

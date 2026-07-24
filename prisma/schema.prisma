@@ -53,6 +53,7 @@ model Organization {
   forms     Form[]
   chatChannels ChatChannel[]
   parentThreads ParentThread[]
+  studentStaffThreads StudentStaffThread[]
   staffResources StaffResource[]
   emergencyProtocols EmergencyProtocol[]
   auditLogs          AuditLog[]
@@ -83,6 +84,9 @@ model CampSession {
   shiftSwaps   ShiftSwapRequest[]
   tripLocationCheckIns TripLocationCheckIn[]
   mentorGroups MentorGroup[]
+  clubs        Club[]
+  excursions   Excursion[]
+  leaveRequests LeaveRequest[]
 
   @@index([organizationId])
 }
@@ -116,13 +120,57 @@ model MentorGroup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  session  CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  mentor   User        @relation("MentorGroupMentor", fields: [mentorId], references: [id], onDelete: Restrict)
-  students Student[]
+  session      CampSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  mentor       User          @relation("MentorGroupMentor", fields: [mentorId], references: [id], onDelete: Restrict)
+  students     Student[]
+  chatChannels ChatChannel[]
 
   @@unique([sessionId, name])
   @@index([sessionId])
   @@index([mentorId])
+}
+
+/** Elective clubs — students may join multiple; 1–3 staff advisors. */
+model Club {
+  id        String   @id @default(cuid())
+  sessionId String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session      CampSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  advisors     ClubAdvisor[]
+  memberships  ClubMembership[]
+  chatChannels ChatChannel[]
+
+  @@unique([sessionId, name])
+  @@index([sessionId])
+}
+
+model ClubAdvisor {
+  id        String   @id @default(cuid())
+  clubId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
+  @@index([userId])
+}
+
+model ClubMembership {
+  id        String   @id @default(cuid())
+  clubId    String
+  studentId String
+  createdAt DateTime @default(now())
+
+  club    Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, studentId])
+  @@index([studentId])
 }
 
 model User {
@@ -152,6 +200,8 @@ model User {
   authSessions   AuthSession[]
   teamAssignments TeamStaffAssignment[]
   mentoredGroups MentorGroup[] @relation("MentorGroupMentor")
+  clubAdvisories ClubAdvisor[]
+  linkedStudents Student[] @relation("StudentAccount")
   parentLinks    StudentParent[]
   checkIns       CheckIn[]       @relation("CheckInStaff")
   incidents      IncidentReport[] @relation("IncidentReporter")
@@ -163,11 +213,14 @@ model User {
   chatChannelMembers ChatChannelMember[]
   chatMessages   ChatMessage[]
   parentMessages ParentMessage[]
+  studentStaffMessages StudentStaffMessage[]
   wellnessChecks WellnessCheck[] @relation("WellnessChecker")
   certifications StaffCertification[]
   reviewedSwaps  ShiftSwapRequest[] @relation("SwapReviewer")
   requestedSwaps ShiftSwapRequest[] @relation("SwapRequester")
   tripLocationCheckIns TripLocationCheckIn[]
+  leaveRequestsRequested LeaveRequest[] @relation("LeaveRequester")
+  leaveRequestsReviewed  LeaveRequest[] @relation("LeaveReviewer")
 
   @@index([organizationId])
   @@index([role])
@@ -247,6 +300,8 @@ model Student {
   sessionId String
   teamId    String?
   mentorGroupId String?
+  /** Optional login account; one User may link to Students across sessions. */
+  userId    String?
   firstName String
   lastName  String
   dateOfBirth DateTime?
@@ -262,6 +317,8 @@ model Student {
   session           CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   team              Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
   mentorGroup       MentorGroup? @relation(fields: [mentorGroupId], references: [id], onDelete: SetNull)
+  user              User?       @relation("StudentAccount", fields: [userId], references: [id], onDelete: SetNull)
+  clubMemberships   ClubMembership[]
   emergencyContacts EmergencyContact[]
   medicalProfile    MedicalProfile?
   parents           StudentParent[]
@@ -271,12 +328,16 @@ model Student {
   formSubmissions   FormSubmission[]
   incidentReports   IncidentReport[] @relation("IncidentStudents")
   parentThreads     ParentThread[]
+  studentStaffThreads StudentStaffThread[]
+  leaveRequests     LeaveRequest[]
   tripLocationCheckIns TripLocationCheckIn[]
 
   @@index([sessionId])
   @@index([teamId])
   @@index([mentorGroupId])
+  @@index([userId])
   @@unique([sessionId, externalId])
+  @@unique([sessionId, userId])
 }
 
 model StudentParent {
@@ -356,6 +417,7 @@ model Activity {
   schedules Schedule[]
   checkIns  CheckIn[]
   missingAlertDispatches MissingAlertDispatch[]
+  leaveRequestActivities LeaveRequestActivity[]
 
   @@index([sessionId, startTime])
   @@index([seriesId])
@@ -546,6 +608,8 @@ model Announcement {
 enum ChatChannelType {
   GENERAL
   TEAM
+  MENTOR_GROUP
+  CLUB
 }
 
 model ChatChannel {
@@ -553,6 +617,8 @@ model ChatChannel {
   organizationId String
   sessionId      String?
   teamId         String?
+  mentorGroupId  String?
+  clubId         String?
   type           ChatChannelType
   name           String
   slug           String          @unique
@@ -561,10 +627,14 @@ model ChatChannel {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   session      CampSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   team         Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  mentorGroup  MentorGroup? @relation(fields: [mentorGroupId], references: [id], onDelete: Cascade)
+  club         Club?        @relation(fields: [clubId], references: [id], onDelete: Cascade)
   members      ChatChannelMember[]
   messages     ChatMessage[]
 
   @@index([organizationId])
+  @@index([mentorGroupId])
+  @@index([clubId])
 }
 
 model ChatChannelMember {
@@ -638,6 +708,37 @@ model ParentMessage {
   thread ParentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender User         @relation(fields: [senderId], references: [id])
   sourcedIncidents IncidentReport[] @relation("IncidentSourceMessage")
+
+  @@index([threadId, createdAt])
+}
+
+/** Student ↔ staff messaging (no peers). Separate from parent/guardian threads. */
+model StudentStaffThread {
+  id             String             @id @default(cuid())
+  organizationId String
+  studentId      String
+  subject        String?
+  status         ParentThreadStatus @default(OPEN)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messages     StudentStaffMessage[]
+
+  @@index([organizationId, updatedAt])
+  @@index([studentId])
+}
+
+model StudentStaffMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  thread StudentStaffThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User               @relation(fields: [senderId], references: [id])
 
   @@index([threadId, createdAt])
 }
@@ -742,6 +843,51 @@ model ShiftSwapRequest {
   @@index([sessionId, status])
 }
 
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  CANCELLED
+}
+
+model LeaveRequest {
+  id            String             @id @default(cuid())
+  sessionId     String
+  studentId     String
+  requestedById String
+  reason        String             @db.Text
+  startsAt      DateTime
+  endsAt        DateTime
+  status        LeaveRequestStatus @default(PENDING)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  session     CampSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student     Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  requestedBy User                   @relation("LeaveRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?                  @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  activities  LeaveRequestActivity[]
+
+  @@index([sessionId, status])
+  @@index([studentId, startsAt, endsAt])
+}
+
+/** Optional activity scoping — empty means all activities during the leave window. */
+model LeaveRequestActivity {
+  id             String @id @default(cuid())
+  leaveRequestId String
+  activityId     String
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  activity     Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveRequestId, activityId])
+  @@index([activityId])
+}
+
 model StaffResource {
   id             String   @id @default(cuid())
   organizationId String
@@ -780,11 +926,32 @@ model EmergencyProtocol {
   @@unique([organizationId, type])
 }
 
+/** Off-site trip catalog (separate from on-campus Activity schedule). */
+model Excursion {
+  id          String   @id @default(cuid())
+  sessionId   String
+  name        String
+  destination String?
+  notes       String?  @db.Text
+  capacity    Int?
+  startTime   DateTime
+  endTime     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session              CampSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tripLocationCheckIns TripLocationCheckIn[]
+
+  @@unique([sessionId, name])
+  @@index([sessionId, startTime])
+}
+
 model TripLocationCheckIn {
   id             String   @id @default(cuid())
   sessionId      String
   studentId      String
   recordedById   String
+  excursionId    String?
   tripLabel      String?
   latitude       Float
   longitude      Float
@@ -795,9 +962,11 @@ model TripLocationCheckIn {
   session    CampSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   recordedBy User        @relation(fields: [recordedById], references: [id])
+  excursion  Excursion?  @relation(fields: [excursionId], references: [id], onDelete: SetNull)
 
   @@index([sessionId, createdAt])
   @@index([studentId])
+  @@index([excursionId])
 }
 
 model AuditLog {

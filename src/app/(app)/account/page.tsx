@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { STAFF_ROLES } from "@/lib/constants";
+import { UserRole } from "@/generated/prisma/browser";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
@@ -11,8 +12,16 @@ export default async function AccountPage() {
     redirect("/login");
   }
 
-  if (!STAFF_ROLES.includes(session.user.role)) {
+  if (session.user.role === UserRole.PARENT) {
     redirect("/parent/dashboard");
+  }
+
+  if (session.user.role === UserRole.STUDENT) {
+    redirect("/student/dashboard");
+  }
+
+  if (!STAFF_ROLES.includes(session.user.role)) {
+    redirect("/dashboard");
   }
 
   return (

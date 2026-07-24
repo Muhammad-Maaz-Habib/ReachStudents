@@ -36,6 +36,15 @@ export const studentInclude = {
   emergencyContacts: {
     orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
   },
+  user: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isActive: true,
+      mustChangePassword: true,
+    },
+  },
   _count: {
     select: {
       formSubmissions: true,

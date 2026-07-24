@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   const data = await getRollCallData(campSession.id, {
     q: searchParams.get("q") ?? undefined,
     teamId: searchParams.get("teamId") ?? undefined,
+    mentorGroupId: searchParams.get("mentorGroupId") ?? undefined,
     activityId: searchParams.get("activityId") ?? undefined,
   });
 
@@ -27,12 +28,16 @@ export async function GET(request: Request) {
     totalExpected: data.totalExpected,
     presentCount: data.presentCount,
     missingCount: data.missingCount,
+    onLeaveCount: data.onLeaveCount,
     teams: data.teams,
+    mentorGroups: data.mentorGroups,
     present: data.present.map((row) => ({
       student: row.student,
       checkedInAt: row.checkedInAt.toISOString(),
       activity: row.activity,
+      onApprovedLeave: row.onApprovedLeave,
     })),
     missing: data.missing,
+    onLeave: data.onLeave,
   });
 }

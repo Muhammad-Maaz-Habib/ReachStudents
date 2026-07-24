@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import type { WhosHereQuery } from "@/lib/attendance/whos-here";
+import { getStudentsOnLeaveNow } from "@/lib/leave/leave-window";
 
 export async function getRollCallData(sessionId: string, query: WhosHereQuery = {}) {
   const studentWhere: Prisma.StudentWhereInput = { sessionId };
 
   if (query.teamId) {
     studentWhere.teamId = query.teamId;
+  }
+  if (query.mentorGroupId) {
+    studentWhere.mentorGroupId = query.mentorGroupId;
   }
 
   if (query.q) {
@@ -16,14 +20,16 @@ export async function getRollCallData(sessionId: string, query: WhosHereQuery = 
     ];
   }
 
+  const checkInStudentFilter: Prisma.StudentWhereInput = { sessionId };
+  if (query.teamId) checkInStudentFilter.teamId = query.teamId;
+  if (query.mentorGroupId) {
+    checkInStudentFilter.mentorGroupId = query.mentorGroupId;
+  }
+
   const checkInWhere: Prisma.CheckInWhereInput = {
     checkedOutAt: null,
-    student: { sessionId },
+    student: checkInStudentFilter,
   };
-
-  if (query.teamId) {
-    checkInWhere.student = { sessionId, teamId: query.teamId };
-  }
 
   if (query.activityId === "general") {
     checkInWhere.activityId = null;
@@ -31,7 +37,7 @@ export async function getRollCallData(sessionId: string, query: WhosHereQuery = 
     checkInWhere.activityId = query.activityId;
   }
 
-  const [students, openCheckIns, teams] = await Promise.all([
+  const [students, openCheckIns, teams, mentorGroups] = await Promise.all([
     prisma.student.findMany({
       where: studentWhere,
       select: {
@@ -40,6 +46,7 @@ export async function getRollCallData(sessionId: string, query: WhosHereQuery = 
         lastName: true,
         grade: true,
         team: { select: { id: true, name: true, color: true } },
+        mentorGroup: { select: { id: true, name: true } },
         medicalProfile: {
           select: { allergies: true, medications: true, conditions: true },
         },
@@ -59,6 +66,11 @@ export async function getRollCallData(sessionId: string, query: WhosHereQuery = 
       select: { id: true, name: true, color: true },
       orderBy: { name: "asc" },
     }),
+    prisma.mentorGroup.findMany({
+      where: { sessionId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const checkInByStudent = new Map(
@@ -66,21 +78,31 @@ export async function getRollCallData(sessionId: string, query: WhosHereQuery = 
   );
 
   const present = students.filter((student) => checkInByStudent.has(student.id));
-  const missing = students.filter((student) => !checkInByStudent.has(student.id));
+  const notPresent = students.filter(
+    (student) => !checkInByStudent.has(student.id),
+  );
+
+  const onLeave = await getStudentsOnLeaveNow(sessionId);
+  const onLeaveStudents = notPresent.filter((student) => onLeave.has(student.id));
+  const missing = notPresent.filter((student) => !onLeave.has(student.id));
 
   return {
     totalExpected: students.length,
     presentCount: present.length,
     missingCount: missing.length,
+    onLeaveCount: onLeaveStudents.length,
     teams,
+    mentorGroups,
     present: present.map((student) => {
       const checkIn = checkInByStudent.get(student.id)!;
       return {
         student,
         checkedInAt: checkIn.checkedInAt,
         activity: checkIn.activity,
+        onApprovedLeave: onLeave.has(student.id),
       };
     }),
     missing,
+    onLeave: onLeaveStudents,
   };
 }

@@ -19,6 +19,10 @@ import {
   Siren,
   UserCog,
   Users,
+  UsersRound,
+  Landmark,
+  Bus,
+  ClipboardList,
 } from "lucide-react";
 import { Logo } from "@/components/branding/logo";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -31,6 +35,10 @@ import type { LucideIcon } from "lucide-react";
 const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
   Users,
+  UsersRound,
+  Landmark,
+  Bus,
+  ClipboardList,
   QrCode,
   Calendar,
   MessageSquare,
@@ -58,6 +66,9 @@ type AppSidebarProps = {
     email?: string | null;
     role: UserRole;
     organizationName?: string | null;
+    organizationLogoUrl?: string | null;
+    organizationPrimaryColor?: string | null;
+    organizationSecondaryColor?: string | null;
   };
   onSignOut: () => void;
 };
@@ -68,15 +79,16 @@ export function AppSidebar({ items, user, onSignOut }: AppSidebarProps) {
   return (
     <aside className="hidden w-72 shrink-0 flex-col border-r bg-card md:flex">
       <div className="flex h-16 items-center border-b px-5">
-        <Logo size="sm" />
+        <Logo
+          size="sm"
+          name={user.organizationName}
+          logoUrl={user.organizationLogoUrl}
+          primaryColor={user.organizationPrimaryColor}
+          secondaryColor={user.organizationSecondaryColor}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        {user.organizationName && (
-          <p className="mb-4 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {user.organizationName}
-          </p>
-        )}
         <nav className="space-y-1" aria-label="Sidebar">
           {items.map((item) => {
             const Icon = iconMap[item.icon] ?? LayoutDashboard;

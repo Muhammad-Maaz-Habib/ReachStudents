@@ -7,6 +7,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   getStaffAssignedTeamIds,
   getStaffMentoredGroupIds,
+  getStaffAdvisedClubIds,
   staffHasTeamOrMentorAccess,
   studentTeamOrMentorWhere,
 } from "@/lib/staff/student-scope";
@@ -16,8 +17,7 @@ export { getStaffAssignedTeamIds };
 /**
  * Can this staff member check in/out a student?
  * Admins / nurses: any student in the org session.
- * Other staff: STUDENTS view + (TeamStaffAssignment on student's team OR
- * assigned mentor of the student's MentorGroup). Access is live from DB.
+ * Other staff: STUDENTS view + (Team OR MentorGroup OR Club advisor).
  */
 export async function canCheckInStudent(
   userId: string,
@@ -46,6 +46,7 @@ export async function canCheckInStudent(
     select: {
       teamId: true,
       mentorGroup: { select: { mentorId: true } },
+      clubMemberships: { select: { clubId: true } },
     },
   });
   if (!student) return false;
@@ -53,7 +54,7 @@ export async function canCheckInStudent(
   return staffHasTeamOrMentorAccess(userId, student);
 }
 
-/** Student where filter for check-in roster — teams OR mentored groups. */
+/** Student where filter for check-in roster — teams OR mentor groups OR clubs. */
 export async function studentCheckInWhere(
   userId: string,
   role: UserRole,
@@ -63,10 +64,11 @@ export async function studentCheckInWhere(
     return { sessionId };
   }
 
-  const [teamIds, mentorGroupIds] = await Promise.all([
+  const [teamIds, mentorGroupIds, clubIds] = await Promise.all([
     getStaffAssignedTeamIds(userId, sessionId),
     getStaffMentoredGroupIds(userId, sessionId),
+    getStaffAdvisedClubIds(userId, sessionId),
   ]);
 
-  return studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds);
+  return studentTeamOrMentorWhere(sessionId, teamIds, mentorGroupIds, clubIds);
 }

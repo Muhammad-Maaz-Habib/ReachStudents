@@ -5,10 +5,12 @@ import {
   UNKNOWN_LOCATION_KEY,
   resolveCampusZone,
 } from "@/lib/attendance/location-distribution";
+import { getStudentsOnLeaveNow } from "@/lib/leave/leave-window";
 
 export type WhosHereQuery = {
   q?: string;
   teamId?: string;
+  mentorGroupId?: string;
   /** Activity id, "general", or "not_checked_in" */
   activityId?: string;
   /**
@@ -18,10 +20,44 @@ export type WhosHereQuery = {
   location?: string;
 };
 
+const studentListSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  grade: true,
+  team: { select: { id: true, name: true, color: true } },
+  mentorGroup: { select: { id: true, name: true } },
+  medicalProfile: {
+    select: { allergies: true, medications: true, conditions: true },
+  },
+} as const;
+
+function applyStudentFilters(
+  base: Prisma.StudentWhereInput,
+  query: WhosHereQuery,
+): Prisma.StudentWhereInput {
+  const where: Prisma.StudentWhereInput = { ...base };
+  if (query.teamId) where.teamId = query.teamId;
+  if (query.mentorGroupId) where.mentorGroupId = query.mentorGroupId;
+  if (query.q) {
+    where.OR = [
+      { firstName: { contains: query.q, mode: "insensitive" } },
+      { lastName: { contains: query.q, mode: "insensitive" } },
+    ];
+  }
+  return where;
+}
+
 export async function getWhosHereData(sessionId: string, query: WhosHereQuery = {}) {
   const teamsPromise = prisma.team.findMany({
     where: { sessionId },
     select: { id: true, name: true, color: true },
+    orderBy: { name: "asc" },
+  });
+
+  const mentorGroupsPromise = prisma.mentorGroup.findMany({
+    where: { sessionId },
+    select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
 
@@ -36,7 +72,13 @@ export async function getWhosHereData(sessionId: string, query: WhosHereQuery = 
   });
 
   if (query.location) {
-    return getWhosHereByLocation(sessionId, query, teamsPromise, activitiesPromise);
+    return getWhosHereByLocation(
+      sessionId,
+      query,
+      teamsPromise,
+      mentorGroupsPromise,
+      activitiesPromise,
+    );
   }
 
   if (query.activityId === "not_checked_in") {
@@ -46,39 +88,26 @@ export async function getWhosHereData(sessionId: string, query: WhosHereQuery = 
     });
     const checkedInIds = [...new Set(openCheckIns.map((row) => row.studentId))];
 
-    const studentWhere: Prisma.StudentWhereInput = {
-      sessionId,
-      ...(checkedInIds.length > 0 ? { id: { notIn: checkedInIds } } : {}),
-    };
+    const studentWhere = applyStudentFilters(
+      {
+        sessionId,
+        ...(checkedInIds.length > 0 ? { id: { notIn: checkedInIds } } : {}),
+      },
+      query,
+    );
 
-    if (query.teamId) {
-      studentWhere.teamId = query.teamId;
-    }
-    if (query.q) {
-      studentWhere.OR = [
-        { firstName: { contains: query.q, mode: "insensitive" } },
-        { lastName: { contains: query.q, mode: "insensitive" } },
-      ];
-    }
-
-    const [students, teams, activities] = await Promise.all([
-      prisma.student.findMany({
-        where: studentWhere,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          grade: true,
-          team: { select: { id: true, name: true, color: true } },
-          medicalProfile: {
-            select: { allergies: true, medications: true, conditions: true },
-          },
-        },
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      }),
-      teamsPromise,
-      activitiesPromise,
-    ]);
+    const [students, teams, mentorGroups, activities, onLeave] =
+      await Promise.all([
+        prisma.student.findMany({
+          where: studentWhere,
+          select: studentListSelect,
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        }),
+        teamsPromise,
+        mentorGroupsPromise,
+        activitiesPromise,
+        getStudentsOnLeaveNow(sessionId),
+      ]);
 
     return {
       total: students.length,
@@ -86,17 +115,18 @@ export async function getWhosHereData(sessionId: string, query: WhosHereQuery = 
         id: `not-in-${student.id}`,
         checkedInAt: new Date(0),
         notCheckedIn: true as const,
+        onApprovedLeave: onLeave.has(student.id),
         student,
         activity: null,
       })),
       teams,
+      mentorGroups,
       activities,
     };
   }
-
   const where: Prisma.CheckInWhereInput = {
     checkedOutAt: null,
-    student: { sessionId },
+    student: applyStudentFilters({ sessionId }, query),
   };
 
   if (query.activityId === "general") {
@@ -105,50 +135,17 @@ export async function getWhosHereData(sessionId: string, query: WhosHereQuery = 
     where.activityId = query.activityId;
   }
 
-  const andConditions: Prisma.CheckInWhereInput[] = [];
-
-  if (query.q) {
-    andConditions.push({
-      student: {
-        OR: [
-          { firstName: { contains: query.q, mode: "insensitive" } },
-          { lastName: { contains: query.q, mode: "insensitive" } },
-        ],
-      },
-    });
-  }
-
-  if (query.teamId) {
-    andConditions.push({
-      student: { teamId: query.teamId },
-    });
-  }
-
-  if (andConditions.length > 0) {
-    where.AND = andConditions;
-  }
-
-  const [openCheckIns, teams, activities] = await Promise.all([
+  const [openCheckIns, teams, mentorGroups, activities] = await Promise.all([
     prisma.checkIn.findMany({
       where,
       include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            grade: true,
-            team: { select: { id: true, name: true, color: true } },
-            medicalProfile: {
-              select: { allergies: true, medications: true, conditions: true },
-            },
-          },
-        },
+        student: { select: studentListSelect },
         activity: { select: { id: true, name: true, location: true } },
       },
       orderBy: [{ checkedInAt: "desc" }],
     }),
     teamsPromise,
+    mentorGroupsPromise,
     activitiesPromise,
   ]);
 
@@ -159,6 +156,7 @@ export async function getWhosHereData(sessionId: string, query: WhosHereQuery = 
       notCheckedIn: false as const,
     })),
     teams,
+    mentorGroups,
     activities,
   };
 }
@@ -167,6 +165,7 @@ async function getWhosHereByLocation(
   sessionId: string,
   query: WhosHereQuery,
   teamsPromise: Promise<{ id: string; name: string; color: string | null }[]>,
+  mentorGroupsPromise: Promise<{ id: string; name: string }[]>,
   activitiesPromise: Promise<
     { id: string; name: string; startTime: Date; location: string | null }[]
   >,
@@ -180,15 +179,9 @@ async function getWhosHereByLocation(
     include: {
       student: {
         select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          grade: true,
+          ...studentListSelect,
           teamId: true,
-          team: { select: { id: true, name: true, color: true } },
-          medicalProfile: {
-            select: { allergies: true, medications: true, conditions: true },
-          },
+          mentorGroupId: true,
         },
       },
       activity: { select: { id: true, name: true, location: true } },
@@ -205,7 +198,6 @@ async function getWhosHereByLocation(
 
   let matched = [...latestByStudent.values()].filter((checkIn) => {
     const zone = resolveCampusZone(checkIn.activity);
-    // Treat legacy __unknown__ links as general campus.
     if (
       locationKey === GENERAL_LOCATION_KEY ||
       locationKey === UNKNOWN_LOCATION_KEY
@@ -217,6 +209,12 @@ async function getWhosHereByLocation(
 
   if (query.teamId) {
     matched = matched.filter((checkIn) => checkIn.student.teamId === query.teamId);
+  }
+
+  if (query.mentorGroupId) {
+    matched = matched.filter(
+      (checkIn) => checkIn.student.mentorGroupId === query.mentorGroupId,
+    );
   }
 
   if (query.q) {
@@ -234,7 +232,11 @@ async function getWhosHereByLocation(
     return a.student.firstName.localeCompare(b.student.firstName);
   });
 
-  const [teams, activities] = await Promise.all([teamsPromise, activitiesPromise]);
+  const [teams, mentorGroups, activities] = await Promise.all([
+    teamsPromise,
+    mentorGroupsPromise,
+    activitiesPromise,
+  ]);
 
   return {
     total: matched.length,
@@ -243,6 +245,7 @@ async function getWhosHereByLocation(
       notCheckedIn: false as const,
     })),
     teams,
+    mentorGroups,
     activities,
   };
 }

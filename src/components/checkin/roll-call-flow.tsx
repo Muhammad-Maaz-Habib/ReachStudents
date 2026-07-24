@@ -23,6 +23,7 @@ type StudentRow = {
   lastName: string;
   grade: string | null;
   team: { id: string; name: string; color: string | null } | null;
+  mentorGroup: { id: string; name: string } | null;
   medicalProfile: { allergies: string | null } | null;
 };
 
@@ -45,6 +46,7 @@ type OpenCheckIn = {
 };
 
 type TeamOption = { id: string; name: string };
+type MentorGroupOption = { id: string; name: string };
 
 type RollCallFlowProps = {
   staffId: string;
@@ -52,6 +54,7 @@ type RollCallFlowProps = {
   students: StudentRow[];
   activities: ActivityOption[];
   teams: TeamOption[];
+  mentorGroups: MentorGroupOption[];
   openCheckIns: OpenCheckIn[];
   canCreateActivity: boolean;
   initialActivityId?: string | null;
@@ -63,6 +66,7 @@ export function RollCallFlow({
   students,
   activities: initialActivities,
   teams,
+  mentorGroups,
   openCheckIns: initialOpen,
   canCreateActivity,
   initialActivityId = null,
@@ -77,6 +81,8 @@ export function RollCallFlow({
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [teamFilterId, setTeamFilterId] = useState("all");
+  const [mentorGroupFilterId, setMentorGroupFilterId] = useState("all");
   const [busyStudentId, setBusyStudentId] = useState<string | null>(null);
   const [openMap, setOpenMap] = useState(
     () =>
@@ -114,11 +120,25 @@ export function RollCallFlow({
     if (activeActivity?.teamId) {
       list = list.filter((student) => student.team?.id === activeActivity.teamId);
     }
+    if (teamFilterId !== "all") {
+      list = list.filter((student) => student.team?.id === teamFilterId);
+    }
+    if (mentorGroupFilterId !== "all") {
+      list = list.filter(
+        (student) => student.mentorGroup?.id === mentorGroupFilterId,
+      );
+    }
     if (!q) return list;
     return list.filter((student) =>
       `${student.firstName} ${student.lastName}`.toLowerCase().includes(q),
     );
-  }, [students, activeActivity?.teamId, query]);
+  }, [
+    students,
+    activeActivity?.teamId,
+    teamFilterId,
+    mentorGroupFilterId,
+    query,
+  ]);
 
   const checkedInCount = eligibleStudents.filter((student) =>
     openMap.has(student.id),
@@ -261,6 +281,48 @@ export function RollCallFlow({
             />
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="roll-call-team" className="text-sm font-medium">
+                Team
+              </label>
+              <select
+                id="roll-call-team"
+                className="min-h-12 w-full rounded-xl border bg-background px-3 text-base"
+                value={teamFilterId}
+                onChange={(event) => setTeamFilterId(event.target.value)}
+              >
+                <option value="all">All teams</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="roll-call-mentor-group"
+                className="text-sm font-medium"
+              >
+                Mentor group
+              </label>
+              <select
+                id="roll-call-mentor-group"
+                className="min-h-12 w-full rounded-xl border bg-background px-3 text-base"
+                value={mentorGroupFilterId}
+                onChange={(event) => setMentorGroupFilterId(event.target.value)}
+              >
+                <option value="all">All mentor groups</option>
+                {mentorGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="relative" role="search">
             <label htmlFor="roll-call-search" className="sr-only">
               Find a student
@@ -310,6 +372,12 @@ export function RollCallFlow({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">
                         {student.firstName} {student.lastName}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {student.team?.name ?? "Unassigned"}
+                        {student.mentorGroup
+                          ? ` · ${student.mentorGroup.name}`
+                          : ""}
                       </p>
                     </div>
                     <StatusBadge

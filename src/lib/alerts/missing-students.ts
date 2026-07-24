@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getApprovedLeaveStudentIds } from "@/lib/leave/leave-window";
 
 export type MissingStudentAlert = {
   activityId: string;
@@ -86,8 +87,18 @@ export async function getMissingStudentAlerts(
 
     if (missingIds.length === 0) continue;
 
+    const onLeave = await getApprovedLeaveStudentIds({
+      sessionId,
+      rangeStart: activity.startTime,
+      rangeEnd: activity.endTime,
+      activityId: activity.id,
+    });
+
+    const alertIds = missingIds.filter((id) => !onLeave.has(id));
+    if (alertIds.length === 0) continue;
+
     const students = await prisma.student.findMany({
-      where: { id: { in: missingIds } },
+      where: { id: { in: alertIds } },
       select: {
         id: true,
         firstName: true,

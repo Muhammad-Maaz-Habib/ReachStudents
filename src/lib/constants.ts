@@ -38,7 +38,11 @@ export const RESOURCE_LABELS: Record<PermissionResource, string> = {
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
   { href: "/roster", label: "Roster", icon: "Users" },
+  { href: "/mentor-groups", label: "Mentor Groups", icon: "UsersRound" },
+  { href: "/clubs", label: "Clubs", icon: "Landmark" },
+  { href: "/excursions", label: "Excursions", icon: "Bus" },
   { href: "/checkin", label: "Check-In", icon: "QrCode" },
+  { href: "/leave", label: "Leave", icon: "ClipboardList" },
   { href: "/schedule", label: "Schedule", icon: "Calendar" },
   { href: "/messages", label: "Messages", icon: "MessageSquare" },
   { href: "/announcements", label: "Announcements", icon: "Megaphone" },
@@ -56,4 +60,11 @@ export const PARENT_NAV_ITEMS = [
   { href: "/parent/messages", label: "Messages", icon: "MessageSquare" },
   { href: "/parent/forms", label: "Forms", icon: "FileText" },
   { href: "/parent/incidents", label: "Incidents", icon: "AlertTriangle" },
+] as const;
+
+export const STUDENT_NAV_ITEMS = [
+  { href: "/student/dashboard", label: "Home", icon: "Home" },
+  { href: "/student/schedule", label: "Schedule", icon: "Calendar" },
+  { href: "/student/leave", label: "Leave", icon: "ClipboardList" },
+  { href: "/student/messages", label: "Messages", icon: "MessageSquare" },
 ] as const;

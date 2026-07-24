@@ -10,15 +10,16 @@ import { PermissionMatrixEditor } from "@/components/settings/permission-matrix-
 import { DataRetentionPanel } from "@/components/settings/data-retention-panel";
 import { SessionsPanel } from "@/components/settings/sessions-panel";
 import { TeamsPanel } from "@/components/settings/teams-panel";
-import { MentorGroupsPanel } from "@/components/settings/mentor-groups-panel";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
-import { STAFF_ROLES } from "@/lib/constants";
+import { OrganizationBrandingPanel } from "@/components/settings/organization-branding-panel";
 
 export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.organizationId) {
     redirect("/onboarding");
   }
+
+  const canEditBranding = session.user.role === UserRole.SUPER_ADMIN;
 
   const [canViewSettings, canEditSettings, organization, sessions, permissions] =
     await Promise.all([
@@ -73,50 +74,6 @@ export default async function SettingsPage() {
       })
     : [];
 
-  const [initialMentorGroups, mentorStaffOptions, mentorStudentOptions] =
-    activeSession
-      ? await Promise.all([
-          prisma.mentorGroup.findMany({
-            where: { sessionId: activeSession.id },
-            include: {
-              mentor: {
-                select: { id: true, name: true, email: true, role: true },
-              },
-              students: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  teamId: true,
-                },
-                orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-              },
-              _count: { select: { students: true } },
-            },
-            orderBy: { name: "asc" },
-          }),
-          prisma.user.findMany({
-            where: {
-              organizationId: session.user.organizationId,
-              isActive: true,
-              role: { in: STAFF_ROLES },
-            },
-            select: { id: true, name: true, email: true, role: true },
-            orderBy: { name: "asc" },
-          }),
-          prisma.student.findMany({
-            where: { sessionId: activeSession.id },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              mentorGroupId: true,
-              team: { select: { name: true } },
-            },
-            orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-          }),
-        ])
-      : [[], [], []];
   const sessionSummaries = sessions.map((campSession) => ({
     id: campSession.id,
     name: campSession.name,
@@ -131,7 +88,7 @@ export default async function SettingsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        description="Organization profile, sessions, teams, mentor groups, and permission matrix."
+        description="Organization branding, sessions, teams, and permission matrix."
       />
 
       <Card id="account" className="rounded-2xl scroll-mt-6">
@@ -154,36 +111,14 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle>Organization</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Name</span>
-            <span className="font-medium">{organization?.name}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Slug</span>
-            <span className="font-medium">{organization?.slug}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Brand colors</span>
-            <div className="flex gap-2">
-              <span
-                className="size-6 rounded-full border"
-                style={{ backgroundColor: organization?.primaryColor }}
-                title="Primary"
-              />
-              <span
-                className="size-6 rounded-full border"
-                style={{ backgroundColor: organization?.secondaryColor }}
-                title="Secondary"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <OrganizationBrandingPanel
+        canEdit={canEditBranding}
+        initialName={organization?.name ?? ""}
+        initialSlug={organization?.slug ?? ""}
+        initialLogoUrl={organization?.logoUrl ?? null}
+        primaryColor={organization?.primaryColor ?? "#E07A3A"}
+        secondaryColor={organization?.secondaryColor ?? "#2D6A4F"}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SessionsPanel canEdit={canEditSettings} initialSessions={sessionSummaries} />
@@ -195,14 +130,22 @@ export default async function SettingsPage() {
         />
       </div>
 
-      <MentorGroupsPanel
-        canEdit={canEditSettings}
-        sessions={sessionSummaries}
-        initialSessionId={activeSession?.id ?? null}
-        initialGroups={initialMentorGroups}
-        staffOptions={mentorStaffOptions}
-        studentOptions={mentorStudentOptions}
-      />
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle>Mentor groups</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Day-to-day mentor cohorts are managed on their own page.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/mentor-groups"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Open Mentor Groups →
+          </Link>
+        </CardContent>
+      </Card>
 
       <DataRetentionPanel
         canEdit={canEditSettings}

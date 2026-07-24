@@ -17,6 +17,10 @@ import {
   Siren,
   UserCog,
   Users,
+  UsersRound,
+  Landmark,
+  Bus,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
@@ -24,6 +28,10 @@ import type { LucideIcon } from "lucide-react";
 const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
   Users,
+  UsersRound,
+  Landmark,
+  Bus,
+  ClipboardList,
   QrCode,
   Calendar,
   MessageSquare,

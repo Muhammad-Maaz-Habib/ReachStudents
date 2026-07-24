@@ -20,6 +20,9 @@ type AppShellProps = {
     email?: string | null;
     role: UserRole;
     organizationName?: string | null;
+    organizationLogoUrl?: string | null;
+    organizationPrimaryColor?: string | null;
+    organizationSecondaryColor?: string | null;
   };
 };
 

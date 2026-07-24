@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ConfidentialNotesCard } from "@/components/health/confidential-notes-card";
 import { DeleteStudentButton } from "@/components/roster/delete-student-button";
+import { StudentLoginPanel } from "@/components/roster/student-login-panel";
 import type { StudentFormInput } from "@/lib/validations/student";
 
 type TeamOption = {
@@ -55,6 +56,13 @@ type StudentProfile = {
     activity: { name: string; location: string | null } | null;
     staff: { name: string | null };
   }[];
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    isActive: boolean;
+    mustChangePassword: boolean;
+  } | null;
 };
 
 type StudentProfileViewProps = {
@@ -62,6 +70,7 @@ type StudentProfileViewProps = {
   teams: TeamOption[];
   canEdit: boolean;
   canDelete?: boolean;
+  canManageLogin?: boolean;
   canViewConfidential?: boolean;
   canEditConfidential?: boolean;
 };
@@ -100,6 +109,7 @@ export function StudentProfileView({
   teams,
   canEdit,
   canDelete = false,
+  canManageLogin = false,
   canViewConfidential = false,
   canEditConfidential = false,
 }: StudentProfileViewProps) {
@@ -187,6 +197,15 @@ export function StudentProfileView({
             )}
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2">
+          <StudentLoginPanel
+            studentId={student.id}
+            canManage={canManageLogin}
+            initialAccount={student.user}
+            suggestedEmail={student.guardianEmail}
+          />
+        </div>
 
         <Card className="rounded-2xl lg:col-span-2">
           <CardHeader>

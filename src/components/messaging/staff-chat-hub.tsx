@@ -15,6 +15,7 @@ type Channel = {
   name: string;
   type: string;
   teamColor: string | null;
+  mentorGroupName?: string | null;
   messageCount: number;
   lastMessage: {
     body: string;
@@ -106,7 +107,7 @@ export function StaffChatHub() {
         <EmptyState
           icon={MessageSquare}
           title="No channels yet"
-          description="Channels are created automatically for your session and teams."
+          description="Channels are created automatically for your session, teams, and mentor groups."
         />
       </div>
     );
@@ -116,7 +117,7 @@ export function StaffChatHub() {
     <div className="space-y-6">
       <PageHeader
         title="Staff chat"
-        description="All-staff and per-team channels. Messages update live when Pusher is configured."
+        description="All-staff, team, mentor-group, and club channels. Messages update live when Pusher is configured."
       />
 
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
@@ -135,6 +136,15 @@ export function StaffChatHub() {
                 onClick={() => setSelectedId(channel.id)}
               >
                 <p className="font-medium">{channel.name}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {channel.type === "GENERAL"
+                    ? "All staff"
+                    : channel.type === "MENTOR_GROUP"
+                      ? "Mentor group"
+                      : channel.type === "CLUB"
+                        ? "Club"
+                        : "Team"}
+                </p>
                 {channel.lastMessage && (
                   <p className="truncate text-xs text-muted-foreground">
                     {channel.lastMessage.senderName}: {channel.lastMessage.body}

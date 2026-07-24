@@ -7,8 +7,12 @@ const publicRoutes = ["/login", "/forgot-password", "/onboarding"];
 const staffRoutes = [
   "/dashboard",
   "/roster",
+  "/mentor-groups",
+  "/clubs",
+  "/excursions",
   "/schedule",
   "/checkin",
+  "/leave",
   "/messages",
   "/announcements",
   "/health",
@@ -18,8 +22,10 @@ const staffRoutes = [
   "/reports",
   "/settings",
   "/emergency",
+  "/account",
 ];
 const parentRoutes = ["/parent"];
+const studentRoutes = ["/student"];
 
 /** Auth.js v5: AUTH_SECRET is canonical; NEXTAUTH_SECRET is the v4 alias. */
 function authSecret() {
@@ -44,6 +50,18 @@ function isParentRoute(pathname: string) {
   );
 }
 
+function isStudentRoute(pathname: string) {
+  return studentRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
+
+function homeForRole(role: string | undefined) {
+  if (role === "PARENT") return "/parent/dashboard";
+  if (role === "STUDENT") return "/student/dashboard";
+  return "/dashboard";
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -56,20 +74,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const secret = authSecret();
-  // Auth.js sets `__Secure-authjs.session-token` on HTTPS; without secureCookie,
-  // getToken looks for `authjs.session-token` and returns null on Vercel.
   const secureCookie =
     request.nextUrl.protocol === "https:" ||
     process.env.NODE_ENV === "production";
-
-  const sessionCookieNames = request.cookies
-    .getAll()
-    .map((cookie) => cookie.name)
-    .filter(
-      (name) =>
-        name.includes("authjs.session-token") ||
-        name.includes("next-auth.session-token"),
-    );
 
   const token = await getToken({
     req: request,
@@ -78,38 +85,20 @@ export async function middleware(request: NextRequest) {
   });
   const isLoggedIn = !!token;
 
-  // TEMP: remove after diagnosing Vercel auth redirect loop
-  console.log("[auth-middleware]", {
-    pathname,
-    hasAuthSecret: Boolean(process.env.AUTH_SECRET),
-    hasNextAuthSecret: Boolean(process.env.NEXTAUTH_SECRET),
-    hasAuthUrl: Boolean(process.env.AUTH_URL ?? process.env.NEXTAUTH_URL),
-    authUrl: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? null,
-    trustHost: process.env.AUTH_TRUST_HOST ?? null,
-    vercel: process.env.VERCEL ?? null,
-    protocol: request.nextUrl.protocol,
-    secureCookie,
-    sessionCookieNames,
-    tokenIsNull: token == null,
-    tokenSub: token?.sub ?? null,
-    tokenRole: token?.role ?? null,
-  });
-
   if (pathname === "/") {
     if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    if (token.role === "PARENT") {
-      return NextResponse.redirect(new URL("/parent/dashboard", request.url));
-    }
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(
+      new URL(homeForRole(token.role as string), request.url),
+    );
   }
 
   if (isPublic(pathname)) {
     if (isLoggedIn) {
-      const dest =
-        token.role === "PARENT" ? "/parent/dashboard" : "/dashboard";
-      return NextResponse.redirect(new URL(dest, request.url));
+      return NextResponse.redirect(
+        new URL(homeForRole(token.role as string), request.url),
+      );
     }
     return NextResponse.next();
   }
@@ -127,15 +116,32 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!token.mustChangePassword && pathname === "/change-password") {
-    const dest = role === "PARENT" ? "/parent/dashboard" : "/dashboard";
-    return NextResponse.redirect(new URL(dest, request.url));
+    return NextResponse.redirect(
+      new URL(homeForRole(role), request.url),
+    );
+  }
+
+  if (pathname === "/change-password") {
+    return NextResponse.next();
   }
 
   if (isParentRoute(pathname) && role !== "PARENT") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL(homeForRole(role), request.url));
   }
 
-  if (isStaffRoute(pathname) && role === "PARENT") {
+  if (isStudentRoute(pathname) && role !== "STUDENT") {
+    return NextResponse.redirect(new URL(homeForRole(role), request.url));
+  }
+
+  if (isStaffRoute(pathname) && (role === "PARENT" || role === "STUDENT")) {
+    return NextResponse.redirect(new URL(homeForRole(role), request.url));
+  }
+
+  if (role === "STUDENT" && !isStudentRoute(pathname)) {
+    return NextResponse.redirect(new URL("/student/dashboard", request.url));
+  }
+
+  if (role === "PARENT" && !isParentRoute(pathname)) {
     return NextResponse.redirect(new URL("/parent/dashboard", request.url));
   }
 

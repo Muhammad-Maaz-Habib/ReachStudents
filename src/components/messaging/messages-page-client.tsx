@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ParentMessagingHub } from "@/components/messaging/parent-messaging-hub";
+import { StudentMessagingHub } from "@/components/messaging/student-messaging-hub";
 import { StaffChatHub } from "@/components/messaging/staff-chat-hub";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,7 @@ type MessagesPageClientProps = {
 };
 
 export function MessagesPageClient({ students }: MessagesPageClientProps) {
-  const [tab, setTab] = useState<"chat" | "parents">("chat");
+  const [tab, setTab] = useState<"chat" | "parents" | "students">("chat");
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -44,10 +45,10 @@ export function MessagesPageClient({ students }: MessagesPageClientProps) {
     <div className="space-y-6">
       <PageHeader
         title="Messages"
-        description="Staff channels and moderated parent threads."
+        description="Staff channels, parent threads, and student–staff messages."
       />
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           variant={tab === "chat" ? "default" : "outline"}
@@ -64,10 +65,20 @@ export function MessagesPageClient({ students }: MessagesPageClientProps) {
         >
           Parent threads
         </Button>
+        <Button
+          type="button"
+          variant={tab === "students" ? "default" : "outline"}
+          className="min-h-11"
+          onClick={() => setTab("students")}
+        >
+          Student messages
+        </Button>
       </div>
 
       {tab === "chat" ? (
         <StaffChatHub />
+      ) : tab === "students" ? (
+        <StudentMessagingHub mode="staff" />
       ) : (
         <div className="space-y-4">
           {students.length > 0 && (

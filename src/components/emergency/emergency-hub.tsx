@@ -26,22 +26,38 @@ type TripCheckIn = {
   id: string;
   studentName: string;
   tripLabel: string | null;
+  excursionName: string | null;
   latitude: number;
   longitude: number;
   createdAt: string;
 };
 
+type ExcursionOption = {
+  id: string;
+  name: string;
+  destination: string | null;
+  startTime: string;
+};
+
 type EmergencyHubProps = {
   canEditProtocols: boolean;
   students: { id: string; name: string }[];
+  initialExcursions?: ExcursionOption[];
 };
 
-export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) {
+export function EmergencyHub({
+  canEditProtocols,
+  students,
+  initialExcursions = [],
+}: EmergencyHubProps) {
   const [protocols, setProtocols] = useState<Protocol[]>([]);
   const [activeType, setActiveType] = useState<string | null>(null);
   const [isEditingProtocol, setIsEditingProtocol] = useState(false);
   const [tripCheckIns, setTripCheckIns] = useState<TripCheckIn[]>([]);
+  const [excursions, setExcursions] =
+    useState<ExcursionOption[]>(initialExcursions);
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [excursionId, setExcursionId] = useState("");
   const [tripLabel, setTripLabel] = useState("");
   const [isPinging, setIsPinging] = useState(false);
 
@@ -59,6 +75,9 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
       if (tripRes.ok) {
         const data = await tripRes.json();
         setTripCheckIns(data.checkIns ?? []);
+        if (Array.isArray(data.excursions)) {
+          setExcursions(data.excursions);
+        }
       }
     }
     void load();
@@ -88,6 +107,7 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             studentId,
+            excursionId: excursionId || undefined,
             tripLabel: tripLabel || undefined,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -104,6 +124,9 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
         if (tripRes.ok) {
           const data = await tripRes.json();
           setTripCheckIns(data.checkIns ?? []);
+          if (Array.isArray(data.excursions)) {
+            setExcursions(data.excursions);
+          }
         }
       },
       () => {
@@ -242,13 +265,42 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Trip label (optional)</Label>
+              <Label>Excursion (optional)</Label>
+              <select
+                className="min-h-11 w-full rounded-xl border bg-background px-3"
+                value={excursionId}
+                onChange={(event) => setExcursionId(event.target.value)}
+              >
+                <option value="">No linked excursion</option>
+                {excursions.map((excursion) => (
+                  <option key={excursion.id} value={excursion.id}>
+                    {excursion.name}
+                    {excursion.destination ? ` — ${excursion.destination}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Trip label override (optional)</Label>
               <Input
                 value={tripLabel}
                 onChange={(event) => setTripLabel(event.target.value)}
-                placeholder="e.g. River hike"
+                placeholder={
+                  excursionId
+                    ? "Defaults to excursion name if blank"
+                    : "e.g. River hike"
+                }
                 className="min-h-11"
               />
+              {excursions.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No excursions yet — add them under{" "}
+                  <Link href="/excursions" className="underline">
+                    Excursions
+                  </Link>
+                  , or type a free-text label.
+                </p>
+              )}
             </div>
           </div>
           <Button
@@ -262,18 +314,22 @@ export function EmergencyHub({ canEditProtocols, students }: EmergencyHubProps) 
 
           {tripCheckIns.length > 0 && (
             <ul className="space-y-2 pt-2 text-sm">
-              {tripCheckIns.slice(0, 8).map((row) => (
-                <li key={row.id} className="rounded-xl border bg-muted/20 p-3">
-                  <p className="font-medium">
-                    {row.studentName}
-                    {row.tripLabel ? ` · ${row.tripLabel}` : ""}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {new Date(row.createdAt).toLocaleString()} ·{" "}
-                    {row.latitude.toFixed(5)}, {row.longitude.toFixed(5)}
-                  </p>
-                </li>
-              ))}
+              {tripCheckIns.slice(0, 8).map((row) => {
+                const label =
+                  row.excursionName ?? row.tripLabel ?? null;
+                return (
+                  <li key={row.id} className="rounded-xl border bg-muted/20 p-3">
+                    <p className="font-medium">
+                      {row.studentName}
+                      {label ? ` · ${label}` : ""}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {new Date(row.createdAt).toLocaleString()} ·{" "}
+                      {row.latitude.toFixed(5)}, {row.longitude.toFixed(5)}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

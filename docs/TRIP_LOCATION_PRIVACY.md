@@ -42,5 +42,6 @@ The 24-hour privacy promise for **what staff can see** holds even when cron is t
 ## Compliance notes
 
 - Pings are tied to `studentId`, `sessionId`, and `recordedById` for accountability while retained.
+- Optional `excursionId` links a ping to a catalogued Excursion (Emergency UI picker); free-text `tripLabel` remains for ad-hoc labels.
 - No parent-facing map or live tracking UI in v1.
 - Audit logging for health/incidents is separate; trip pings are ephemeral by design.

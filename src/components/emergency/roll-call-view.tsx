@@ -22,6 +22,7 @@ type RollCallStudent = {
   lastName: string;
   grade: string | null;
   team: { id: string; name: string; color: string | null } | null;
+  mentorGroup?: { id: string; name: string } | null;
   medicalProfile: {
     allergies: string | null;
     medications: string | null;
@@ -32,33 +33,45 @@ type RollCallStudent = {
 type RollCallViewProps = {
   sessionName: string;
   initialTeamId?: string;
+  initialMentorGroupId?: string;
   teams: { id: string; name: string; color: string | null }[];
+  mentorGroups?: { id: string; name: string }[];
   initialData: {
     totalExpected: number;
     presentCount: number;
     missingCount: number;
+    onLeaveCount?: number;
     present: {
       student: RollCallStudent;
       checkedInAt: string;
       activity: { name: string; location: string | null } | null;
+      onApprovedLeave?: boolean;
     }[];
     missing: RollCallStudent[];
+    onLeave?: RollCallStudent[];
   };
 };
-
 export function RollCallView({
   sessionName,
   initialTeamId,
+  initialMentorGroupId,
   teams,
+  mentorGroups = [],
   initialData,
 }: RollCallViewProps) {
   const [teamId, setTeamId] = useState(initialTeamId ?? "all");
+  const [mentorGroupId, setMentorGroupId] = useState(
+    initialMentorGroupId ?? "all",
+  );
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
     async function refresh() {
       const params = new URLSearchParams();
       if (teamId && teamId !== "all") params.set("teamId", teamId);
+      if (mentorGroupId && mentorGroupId !== "all") {
+        params.set("mentorGroupId", mentorGroupId);
+      }
       const response = await fetch(`/api/emergency/roll-call?${params.toString()}`);
       if (!response.ok) return;
       setData(await response.json());
@@ -66,7 +79,7 @@ export function RollCallView({
     void refresh();
     const interval = setInterval(refresh, 15_000);
     return () => clearInterval(interval);
-  }, [teamId]);
+  }, [teamId, mentorGroupId]);
 
   return (
     <div className="space-y-4">
@@ -97,26 +110,47 @@ export function RollCallView({
         <p className="text-sm font-medium">
           {data.missingCount > 0
             ? `${data.missingCount} student${data.missingCount === 1 ? "" : "s"} NOT accounted for`
-            : "All students accounted for"}
+            : (data.onLeaveCount ?? 0) > 0
+              ? `All accounted for (${data.onLeaveCount} on approved leave)`
+              : "All students accounted for"}
         </p>
       </div>
 
-      <Select
-        value={teamId}
-        onValueChange={(value) => setTeamId(value ?? "all")}
-      >
-        <SelectTrigger className="min-h-11 w-full max-w-xs">
-          <SelectValue placeholder="All teams" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All teams</SelectItem>
-          {teams.map((team) => (
-            <SelectItem key={team.id} value={team.id}>
-              {team.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Select
+          value={teamId}
+          onValueChange={(value) => setTeamId(value ?? "all")}
+        >
+          <SelectTrigger className="min-h-11 w-full">
+            <SelectValue placeholder="All teams" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All teams</SelectItem>
+            {teams.map((team) => (
+              <SelectItem key={team.id} value={team.id}>
+                {team.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={mentorGroupId}
+          onValueChange={(value) => setMentorGroupId(value ?? "all")}
+        >
+          <SelectTrigger className="min-h-11 w-full">
+            <SelectValue placeholder="All mentor groups" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All mentor groups</SelectItem>
+            {mentorGroups.map((group) => (
+              <SelectItem key={group.id} value={group.id}>
+                {group.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {data.missingCount > 0 && (
         <Card className="rounded-2xl border-destructive/40">
@@ -137,9 +171,37 @@ export function RollCallView({
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {student.team?.name ?? "Unassigned"}
+                      {student.mentorGroup
+                        ? ` · ${student.mentorGroup.name}`
+                        : ""}
                     </p>
                   </div>
                   <MedicalFlagBadge student={student} />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {(data.onLeave?.length ?? 0) > 0 && (
+        <Card className="rounded-2xl border-sky-500/30">
+          <CardContent className="space-y-2 pt-6">
+            <p className="font-semibold text-sky-800 dark:text-sky-300">
+              On approved leave ({data.onLeaveCount ?? data.onLeave?.length})
+            </p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {data.onLeave?.map((student) => (
+                <li
+                  key={student.id}
+                  className="rounded-xl border bg-muted/20 px-4 py-3 text-sm"
+                >
+                  <p className="font-medium">
+                    {student.firstName} {student.lastName}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {student.team?.name ?? "Unassigned"}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -163,8 +225,11 @@ export function RollCallView({
                   {row.student.firstName} {row.student.lastName}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {row.student.team?.name} · In{" "}
-                  {new Date(row.checkedInAt).toLocaleTimeString()}
+                  {row.student.team?.name}
+                  {row.student.mentorGroup
+                    ? ` · ${row.student.mentorGroup.name}`
+                    : ""}{" "}
+                  · In {new Date(row.checkedInAt).toLocaleTimeString()}
                 </p>
               </li>
             ))}

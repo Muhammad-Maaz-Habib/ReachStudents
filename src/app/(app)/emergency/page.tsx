@@ -19,6 +19,17 @@ export default async function EmergencyPage() {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
+  const excursions = await prisma.excursion.findMany({
+    where: { sessionId: campSession.id },
+    select: {
+      id: true,
+      name: true,
+      destination: true,
+      startTime: true,
+    },
+    orderBy: [{ startTime: "asc" }, { name: "asc" }],
+  });
+
   const canEditProtocols = ADMIN_ROLES.includes(session.user.role);
 
   return (
@@ -27,6 +38,12 @@ export default async function EmergencyPage() {
       students={students.map((student) => ({
         id: student.id,
         name: `${student.firstName} ${student.lastName}`,
+      }))}
+      initialExcursions={excursions.map((row) => ({
+        id: row.id,
+        name: row.name,
+        destination: row.destination,
+        startTime: row.startTime.toISOString(),
       }))}
     />
   );

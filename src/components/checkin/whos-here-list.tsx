@@ -24,12 +24,14 @@ type CheckInRow = {
   id: string;
   checkedInAt: string;
   notCheckedIn?: boolean;
+  onApprovedLeave?: boolean;
   student: {
     id: string;
     firstName: string;
     lastName: string;
     grade: string | null;
     team: { id: string; name: string; color: string | null } | null;
+    mentorGroup?: { id: string; name: string } | null;
     medicalProfile: {
       allergies: string | null;
       medications: string | null;
@@ -44,6 +46,7 @@ type WhosHereListProps = {
   total: number;
   checkIns: CheckInRow[];
   teams: { id: string; name: string; color: string | null }[];
+  mentorGroups?: { id: string; name: string }[];
   activities: {
     id: string;
     name: string;
@@ -52,6 +55,7 @@ type WhosHereListProps = {
   }[];
   initialQuery: string;
   initialTeamId?: string;
+  initialMentorGroupId?: string;
   initialActivityId?: string;
   initialLocation?: string;
   previewLimit?: number;
@@ -64,9 +68,11 @@ export function WhosHereList({
   total,
   checkIns,
   teams,
+  mentorGroups = [],
   activities,
   initialQuery,
   initialTeamId,
+  initialMentorGroupId,
   initialActivityId,
   initialLocation,
   previewLimit,
@@ -163,9 +169,9 @@ export function WhosHereList({
       )}
 
       {!previewLimit && (
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <form
-            className="relative lg:col-span-1"
+            className="relative sm:col-span-2 xl:col-span-1"
             onSubmit={(event) => {
               event.preventDefault();
               updateFilters({ q: query || undefined });
@@ -194,6 +200,27 @@ export function WhosHereList({
               {teams.map((team) => (
                 <SelectItem key={team.id} value={team.id}>
                   {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={initialMentorGroupId ?? "all"}
+            onValueChange={(value) =>
+              updateFilters({
+                mentorGroupId: !value || value === "all" ? undefined : value,
+              })
+            }
+          >
+            <SelectTrigger className="min-h-11 w-full">
+              <SelectValue placeholder="All mentor groups" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All mentor groups</SelectItem>
+              {mentorGroups.map((group) => (
+                <SelectItem key={group.id} value={group.id}>
+                  {group.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -266,13 +293,20 @@ export function WhosHereList({
                   </p>
                   <p className="text-muted-foreground">
                     {checkIn.student.team?.name ?? "Unassigned"}
+                    {checkIn.student.mentorGroup
+                      ? ` · ${checkIn.student.mentorGroup.name}`
+                      : ""}
                     {checkIn.student.grade
                       ? ` · Grade ${checkIn.student.grade}`
                       : ""}
                   </p>
                 </div>
-                <MedicalFlagBadge student={checkIn.student} />
-              </div>
+                <div className="flex flex-col items-end gap-1">
+                  <MedicalFlagBadge student={checkIn.student} />
+                  {checkIn.onApprovedLeave && (
+                    <StatusBadge status="info" label="On approved leave" />
+                  )}
+                </div>              </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {checkIn.notCheckedIn ? (
                   <span>Not checked in</span>

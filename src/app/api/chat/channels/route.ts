@@ -38,6 +38,7 @@ export async function GET() {
       name: channel.name,
       type: channel.type,
       teamColor: channel.team?.color ?? null,
+      mentorGroupName: channel.mentorGroup?.name ?? null,
       messageCount: channel._count.messages,
       lastMessage: channel.messages[0]
         ? {

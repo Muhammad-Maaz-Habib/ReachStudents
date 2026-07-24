@@ -28,42 +28,72 @@ export async function getStaffMentoredGroupIds(
   return groups.map((row) => row.id);
 }
 
+/** Club IDs where this user is an advisor. */
+export async function getStaffAdvisedClubIds(
+  userId: string,
+  sessionId: string,
+): Promise<string[]> {
+  const rows = await prisma.clubAdvisor.findMany({
+    where: {
+      userId,
+      club: { sessionId },
+    },
+    select: { clubId: true },
+  });
+  return rows.map((row) => row.clubId);
+}
+
 /**
- * Live access via TeamStaffAssignment OR MentorGroup mentorship (OR, not AND).
- * Does not check role/permission matrix — callers gate those first.
+ * Live access via TeamStaffAssignment OR MentorGroup mentorship OR Club advisor
+ * (OR, not AND). Does not check role/permission matrix — callers gate those first.
  */
 export async function staffHasTeamOrMentorAccess(
   userId: string,
   student: {
     teamId: string | null;
     mentorGroup: { mentorId: string } | null;
+    clubMemberships?: { clubId: string }[];
   },
 ): Promise<boolean> {
   if (student.mentorGroup?.mentorId === userId) {
     return true;
   }
 
-  if (!student.teamId) {
+  if (student.teamId) {
+    const assignment = await prisma.teamStaffAssignment.findFirst({
+      where: { userId, teamId: student.teamId },
+      select: { id: true },
+    });
+    if (assignment) return true;
+  }
+
+  const clubIds = (student.clubMemberships ?? []).map((row) => row.clubId);
+  if (clubIds.length === 0) {
     return false;
   }
 
-  const assignment = await prisma.teamStaffAssignment.findFirst({
-    where: { userId, teamId: student.teamId },
+  const advisory = await prisma.clubAdvisor.findFirst({
+    where: { userId, clubId: { in: clubIds } },
     select: { id: true },
   });
-  return !!assignment;
+  return !!advisory;
 }
 
 /**
- * Prisma where clause: students on assigned teams OR in mentored groups.
- * Returns an impossible filter when the staff has neither connection.
+ * Prisma where: students on assigned teams OR mentored groups OR advised clubs.
+ * Impossible filter when staff has no connections.
  */
 export function studentTeamOrMentorWhere(
   sessionId: string,
   teamIds: string[],
   mentorGroupIds: string[],
+  clubIds: string[] = [],
 ): Prisma.StudentWhereInput {
-  if (teamIds.length === 0 && mentorGroupIds.length === 0) {
+  if (
+    teamIds.length === 0 &&
+    mentorGroupIds.length === 0 &&
+    clubIds.length === 0
+  ) {
     return { sessionId, id: { in: [] } };
   }
 
@@ -73,6 +103,9 @@ export function studentTeamOrMentorWhere(
   }
   if (mentorGroupIds.length > 0) {
     or.push({ mentorGroupId: { in: mentorGroupIds } });
+  }
+  if (clubIds.length > 0) {
+    or.push({ clubMemberships: { some: { clubId: { in: clubIds } } } });
   }
 
   return { sessionId, OR: or };

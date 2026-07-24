@@ -92,6 +92,15 @@ export default async function StudentProfilePage({
   const serialized = {
     ...student,
     dateOfBirth: student.dateOfBirth?.toISOString() ?? null,
+    user: student.user
+      ? {
+          id: student.user.id,
+          email: student.user.email,
+          name: student.user.name,
+          isActive: student.user.isActive,
+          mustChangePassword: student.user.mustChangePassword,
+        }
+      : null,
     medicalProfile: student.medicalProfile
       ? {
           id: student.medicalProfile.id,
@@ -115,6 +124,7 @@ export default async function StudentProfilePage({
       teams={campSession.teams.map((team) => ({ id: team.id, name: team.name }))}
       canEdit={canEdit}
       canDelete={ADMIN_ROLES.includes(session.user.role)}
+      canManageLogin={ADMIN_ROLES.includes(session.user.role) && canEdit}
       canViewConfidential={canViewConfidential}
       canEditConfidential={canEditConfidential}
     />

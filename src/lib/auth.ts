@@ -52,29 +52,73 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           organizationId: user.organizationId,
           organizationName: user.organization?.name ?? null,
+          organizationLogoUrl: user.organization?.logoUrl ?? null,
+          organizationPrimaryColor: user.organization?.primaryColor ?? null,
+          organizationSecondaryColor: user.organization?.secondaryColor ?? null,
           mustChangePassword: user.mustChangePassword,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role as UserRole;
         token.organizationId = user.organizationId as string | null;
         token.organizationName = user.organizationName as string | null;
+        token.organizationLogoUrl = user.organizationLogoUrl as string | null;
+        token.organizationPrimaryColor =
+          user.organizationPrimaryColor as string | null;
+        token.organizationSecondaryColor =
+          user.organizationSecondaryColor as string | null;
         token.mustChangePassword = Boolean(user.mustChangePassword);
       }
 
-      if (trigger === "update" && token.sub) {
-        const fresh = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { mustChangePassword: true, role: true, organizationId: true },
+      if (trigger === "update") {
+        if (token.sub) {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: {
+              mustChangePassword: true,
+              role: true,
+              organizationId: true,
+            },
+          });
+          if (fresh) {
+            token.mustChangePassword = fresh.mustChangePassword;
+            token.role = fresh.role;
+            token.organizationId = fresh.organizationId;
+          }
+        }
+
+        if (session && typeof session === "object") {
+          if ("organizationName" in session) {
+            token.organizationName =
+              (session.organizationName as string | null) ?? null;
+          }
+          if ("organizationLogoUrl" in session) {
+            token.organizationLogoUrl =
+              (session.organizationLogoUrl as string | null) ?? null;
+          }
+        }
+      }
+
+      // Keep branding fresh from DB (name/logo edits without re-login).
+      if (token.organizationId) {
+        const org = await prisma.organization.findUnique({
+          where: { id: token.organizationId as string },
+          select: {
+            name: true,
+            logoUrl: true,
+            primaryColor: true,
+            secondaryColor: true,
+          },
         });
-        if (fresh) {
-          token.mustChangePassword = fresh.mustChangePassword;
-          token.role = fresh.role;
-          token.organizationId = fresh.organizationId;
+        if (org) {
+          token.organizationName = org.name;
+          token.organizationLogoUrl = org.logoUrl;
+          token.organizationPrimaryColor = org.primaryColor;
+          token.organizationSecondaryColor = org.secondaryColor;
         }
       }
 
@@ -86,6 +130,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as UserRole;
         session.user.organizationId = token.organizationId as string | null;
         session.user.organizationName = token.organizationName as string | null;
+        session.user.organizationLogoUrl =
+          (token.organizationLogoUrl as string | null) ?? null;
+        session.user.organizationPrimaryColor =
+          (token.organizationPrimaryColor as string | null) ?? null;
+        session.user.organizationSecondaryColor =
+          (token.organizationSecondaryColor as string | null) ?? null;
         session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;

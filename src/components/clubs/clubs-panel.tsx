@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Plus, Trash2, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Upload, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SessionSummary } from "@/components/settings/sessions-panel";
+import { ImportClubsDialog } from "@/components/clubs/import-clubs-dialog";
 
 type StaffOption = {
   id: string;
@@ -29,53 +30,54 @@ type StudentOption = {
   id: string;
   firstName: string;
   lastName: string;
-  mentorGroupId: string | null;
   team: { name: string } | null;
+  clubMemberships?: { clubId: string }[];
 };
 
-export type MentorGroupSummary = {
+export type ClubSummary = {
   id: string;
   sessionId: string;
   name: string;
-  mentor: StaffOption;
+  advisors: StaffOption[];
   students: {
     id: string;
     firstName: string;
     lastName: string;
     teamId: string | null;
   }[];
-  _count: { students: number };
+  _count: { memberships: number; advisors: number };
 };
 
-type MentorGroupsPanelProps = {
+type ClubsPanelProps = {
   canEdit: boolean;
   sessions: SessionSummary[];
   initialSessionId: string | null;
-  initialGroups: MentorGroupSummary[];
+  initialClubs: ClubSummary[];
   staffOptions: StaffOption[];
   studentOptions: StudentOption[];
 };
 
-export function MentorGroupsPanel({
+export function ClubsPanel({
   canEdit,
   sessions,
   initialSessionId,
-  initialGroups,
+  initialClubs,
   staffOptions,
   studentOptions: initialStudents,
-}: MentorGroupsPanelProps) {
+}: ClubsPanelProps) {
   const router = useRouter();
   const activeFallback =
     sessions.find((row) => row.isActive)?.id ?? sessions[0]?.id ?? "";
   const [sessionId, setSessionId] = useState(
     initialSessionId ?? activeFallback,
   );
-  const [groups, setGroups] = useState(initialGroups);
+  const [clubs, setClubs] = useState(initialClubs);
   const [students, setStudents] = useState(initialStudents);
   const [staff] = useState(staffOptions);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editGroup, setEditGroup] = useState<MentorGroupSummary | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [editClub, setEditClub] = useState<ClubSummary | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const selectedSession = useMemo(
@@ -85,51 +87,50 @@ export function MentorGroupsPanel({
 
   async function loadForSession(nextSessionId: string) {
     const response = await fetch(
-      `/api/settings/mentor-groups?sessionId=${encodeURIComponent(nextSessionId)}`,
+      `/api/settings/clubs?sessionId=${encodeURIComponent(nextSessionId)}`,
     );
     if (!response.ok) {
-      toast.error("Could not load mentor groups");
+      toast.error("Could not load clubs");
       return;
     }
     const data = await response.json();
-    setGroups(data.groups ?? []);
+    setClubs(data.clubs ?? []);
     setStudents(data.studentOptions ?? []);
     setSessionId(nextSessionId);
     setExpandedId(null);
   }
 
-  async function createGroup(event: React.FormEvent<HTMLFormElement>) {
+  async function createClub(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim();
-    const mentorId = String(form.get("mentorId") ?? "");
+    const advisorIds = form.getAll("advisorIds").map(String);
     const studentIds = form.getAll("studentIds").map(String);
 
-    if (!name || !mentorId) {
-      toast.error("Name and mentor are required");
+    if (!name || advisorIds.length === 0) {
+      toast.error("Name and at least one advisor are required");
+      return;
+    }
+    if (advisorIds.length > 3) {
+      toast.error("Choose at most 3 advisors");
       return;
     }
 
     setIsSaving(true);
-    const response = await fetch("/api/settings/mentor-groups", {
+    const response = await fetch("/api/settings/clubs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        name,
-        mentorId,
-        studentIds,
-      }),
+      body: JSON.stringify({ sessionId, name, advisorIds, studentIds }),
     });
     setIsSaving(false);
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      toast.error(data.error ?? "Could not create mentor group");
+      toast.error(data.error ?? "Could not create club");
       return;
     }
 
-    toast.success("Mentor group created");
+    toast.success("Club created");
     setCreateOpen(false);
     await loadForSession(sessionId);
     router.refresh();
@@ -137,96 +138,109 @@ export function MentorGroupsPanel({
 
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editGroup) return;
+    if (!editClub) return;
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim();
-    const mentorId = String(form.get("mentorId") ?? "");
+    const advisorIds = form.getAll("advisorIds").map(String);
     const studentIds = form.getAll("studentIds").map(String);
 
+    if (advisorIds.length === 0 || advisorIds.length > 3) {
+      toast.error("Choose 1–3 advisors");
+      return;
+    }
+
     setIsSaving(true);
-    const response = await fetch(`/api/settings/mentor-groups/${editGroup.id}`, {
+    const response = await fetch(`/api/settings/clubs/${editClub.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, mentorId, studentIds }),
+      body: JSON.stringify({ name, advisorIds, studentIds }),
     });
     setIsSaving(false);
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      toast.error(data.error ?? "Could not update mentor group");
+      toast.error(data.error ?? "Could not update club");
       return;
     }
 
-    toast.success("Mentor group updated");
-    setEditGroup(null);
+    toast.success("Club updated");
+    setEditClub(null);
     await loadForSession(sessionId);
     router.refresh();
   }
 
-  async function deleteGroup(group: MentorGroupSummary) {
+  async function deleteClub(club: ClubSummary) {
     if (
       !window.confirm(
-        `Delete mentor group “${group.name}”? Students stay on roster and keep their academic team; they are only unassigned from this mentor group.`,
+        `Delete club “${club.name}”? Students stay on the roster; they are only removed from this club.`,
       )
     ) {
       return;
     }
 
-    const response = await fetch(`/api/settings/mentor-groups/${group.id}`, {
+    const response = await fetch(`/api/settings/clubs/${club.id}`, {
       method: "DELETE",
     });
     if (!response.ok) {
-      toast.error("Could not delete mentor group");
+      toast.error("Could not delete club");
       return;
     }
-    toast.success("Mentor group deleted");
+    toast.success("Club deleted");
     await loadForSession(sessionId);
     router.refresh();
   }
 
-  function studentCheckboxList(
-    selectedIds: Set<string>,
-    name = "studentIds",
-  ) {
+  function advisorCheckboxList(selectedIds: Set<string>) {
+    return (
+      <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border p-3">
+        {staff.map((person) => (
+          <label key={person.id} className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="advisorIds"
+              value={person.id}
+              defaultChecked={selectedIds.has(person.id)}
+              className="mt-1"
+            />
+            <span>
+              {person.name ?? person.email}{" "}
+              <span className="text-muted-foreground">({person.role})</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  function studentCheckboxList(selectedIds: Set<string>) {
     return (
       <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border p-3">
         {students.length === 0 ? (
           <p className="text-sm text-muted-foreground">No students in session</p>
         ) : (
-          students.map((student) => {
-            const assignedElsewhere =
-              student.mentorGroupId &&
-              !selectedIds.has(student.id) &&
-              student.mentorGroupId !== editGroup?.id;
-            return (
-              <label
-                key={student.id}
-                className="flex items-start gap-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  name={name}
-                  value={student.id}
-                  defaultChecked={selectedIds.has(student.id)}
-                  className="mt-1"
-                />
-                <span>
-                  {student.firstName} {student.lastName}
-                  {student.team ? (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {student.team.name}
-                    </span>
-                  ) : null}
-                  {assignedElsewhere ? (
-                    <span className="block text-xs text-amber-700">
-                      Currently in another mentor group — selecting moves them
-                    </span>
-                  ) : null}
-                </span>
-              </label>
-            );
-          })
+          students.map((student) => (
+            <label
+              key={student.id}
+              className="flex items-start gap-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                name="studentIds"
+                value={student.id}
+                defaultChecked={selectedIds.has(student.id)}
+                className="mt-1"
+              />
+              <span>
+                {student.firstName} {student.lastName}
+                {student.team ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {student.team.name}
+                  </span>
+                ) : null}
+              </span>
+            </label>
+          ))
         )}
       </div>
     );
@@ -236,29 +250,40 @@ export function MentorGroupsPanel({
     <Card className="rounded-2xl">
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div>
-          <CardTitle className="text-lg">Mentor groups</CardTitle>
+          <CardTitle className="text-lg">Clubs</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Day-to-day cohorts (~8–10 students) with one assigned mentor.
-            Independent from academic teams/programs.
+            Electives with 1–3 advisors. Students may join more than one club.
           </p>
         </div>
         {canEdit && (
-          <Button
-            type="button"
-            className="min-h-11"
-            onClick={() => setCreateOpen(true)}
-            disabled={!sessionId}
-          >
-            <Plus className="size-4" aria-hidden />
-            Add group
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setImportOpen(true)}
+              disabled={!sessionId}
+            >
+              <Upload className="size-4" aria-hidden />
+              Import CSV
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              onClick={() => setCreateOpen(true)}
+              disabled={!sessionId}
+            >
+              <Plus className="size-4" aria-hidden />
+              Add club
+            </Button>
+          </div>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="mentor-session">Session</Label>
+          <Label htmlFor="club-session">Session</Label>
           <select
-            id="mentor-session"
+            id="club-session"
             className="min-h-11 w-full rounded-xl border bg-background px-3"
             value={sessionId}
             onChange={(event) => void loadForSession(event.target.value)}
@@ -274,33 +299,31 @@ export function MentorGroupsPanel({
 
         {!selectedSession ? (
           <p className="text-sm text-muted-foreground">No session available.</p>
-        ) : groups.length === 0 ? (
+        ) : clubs.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No mentor groups yet for this session.
+            No clubs yet for this session.
           </p>
         ) : (
           <ul className="space-y-2">
-            {groups.map((group) => {
-              const open = expandedId === group.id;
+            {clubs.map((club) => {
+              const open = expandedId === club.id;
               return (
-                <li key={group.id} className="rounded-xl border">
+                <li key={club.id} className="rounded-xl border">
                   <div className="flex flex-wrap items-center gap-2 p-3">
                     <button
                       type="button"
                       className="flex min-h-10 flex-1 items-center gap-2 text-left"
-                      onClick={() =>
-                        setExpandedId(open ? null : group.id)
-                      }
+                      onClick={() => setExpandedId(open ? null : club.id)}
                     >
                       {open ? (
                         <ChevronDown className="size-4 shrink-0" />
                       ) : (
                         <ChevronRight className="size-4 shrink-0" />
                       )}
-                      <span className="font-medium">{group.name}</span>
+                      <span className="font-medium">{club.name}</span>
                       <span className="text-sm text-muted-foreground">
-                        · {group.mentor.name ?? group.mentor.email} ·{" "}
-                        {group._count.students} students
+                        · {club.advisors.length} advisors ·{" "}
+                        {club._count.memberships} students
                       </span>
                     </button>
                     {canEdit && (
@@ -310,7 +333,7 @@ export function MentorGroupsPanel({
                           variant="outline"
                           size="sm"
                           className="min-h-9"
-                          onClick={() => setEditGroup(group)}
+                          onClick={() => setEditClub(club)}
                         >
                           Edit
                         </Button>
@@ -319,7 +342,7 @@ export function MentorGroupsPanel({
                           variant="outline"
                           size="sm"
                           className="min-h-9 text-destructive"
-                          onClick={() => void deleteGroup(group)}
+                          onClick={() => void deleteClub(club)}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -327,22 +350,34 @@ export function MentorGroupsPanel({
                     )}
                   </div>
                   {open && (
-                    <div className="border-t bg-muted/20 px-4 py-3 text-sm">
-                      <p className="mb-2 flex items-center gap-2 font-medium">
-                        <Users className="size-4" aria-hidden />
-                        Roster
-                      </p>
-                      {group.students.length === 0 ? (
-                        <p className="text-muted-foreground">No students yet</p>
-                      ) : (
-                        <ul className="space-y-1 text-muted-foreground">
-                          {group.students.map((student) => (
-                            <li key={student.id}>
-                              {student.firstName} {student.lastName}
+                    <div className="space-y-3 border-t bg-muted/20 px-4 py-3 text-sm">
+                      <div>
+                        <p className="mb-1 font-medium">Advisors</p>
+                        <ul className="text-muted-foreground">
+                          {club.advisors.map((advisor) => (
+                            <li key={advisor.id}>
+                              {advisor.name ?? advisor.email}
                             </li>
                           ))}
                         </ul>
-                      )}
+                      </div>
+                      <div>
+                        <p className="mb-1 flex items-center gap-2 font-medium">
+                          <Users className="size-4" aria-hidden />
+                          Members
+                        </p>
+                        {club.students.length === 0 ? (
+                          <p className="text-muted-foreground">No students yet</p>
+                        ) : (
+                          <ul className="space-y-1 text-muted-foreground">
+                            {club.students.map((student) => (
+                              <li key={student.id}>
+                                {student.firstName} {student.lastName}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   )}
                 </li>
@@ -355,41 +390,26 @@ export function MentorGroupsPanel({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create mentor group</DialogTitle>
+            <DialogTitle>Create club</DialogTitle>
             <DialogDescription>
-              Assign one mentor and optionally add students. Academic team
-              assignments are unchanged.
+              Assign 1–3 advisors and optionally add students. Students can
+              belong to multiple clubs.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={(event) => void createGroup(event)} className="space-y-4">
+          <form onSubmit={(event) => void createClub(event)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="mg-name">Name</Label>
+              <Label htmlFor="club-name">Name</Label>
               <Input
-                id="mg-name"
+                id="club-name"
                 name="name"
                 required
                 className="min-h-11"
-                placeholder="Mentor Group A"
+                placeholder="Robotics"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mg-mentor">Mentor</Label>
-              <select
-                id="mg-mentor"
-                name="mentorId"
-                required
-                className="min-h-11 w-full rounded-xl border bg-background px-3"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Select staff…
-                </option>
-                {staff.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name ?? person.email} ({person.role})
-                  </option>
-                ))}
-              </select>
+              <Label>Advisors (1–3)</Label>
+              {advisorCheckboxList(new Set())}
             </div>
             <div className="space-y-2">
               <Label>Students</Label>
@@ -397,7 +417,7 @@ export function MentorGroupsPanel({
             </div>
             <DialogFooter>
               <Button type="submit" className="min-h-11" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Create group"}
+                {isSaving ? "Saving..." : "Create club"}
               </Button>
             </DialogFooter>
           </form>
@@ -405,51 +425,41 @@ export function MentorGroupsPanel({
       </Dialog>
 
       <Dialog
-        open={!!editGroup}
+        open={!!editClub}
         onOpenChange={(open) => {
-          if (!open) setEditGroup(null);
+          if (!open) setEditClub(null);
         }}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit mentor group</DialogTitle>
+            <DialogTitle>Edit club</DialogTitle>
             <DialogDescription>
-              Update mentor or roster. Moving a student here removes them from
-              any other mentor group.
+              Update advisors or membership. Leaving a club does not remove the
+              student from other clubs.
             </DialogDescription>
           </DialogHeader>
-          {editGroup && (
+          {editClub && (
             <form onSubmit={(event) => void saveEdit(event)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="mg-edit-name">Name</Label>
+                <Label htmlFor="club-edit-name">Name</Label>
                 <Input
-                  id="mg-edit-name"
+                  id="club-edit-name"
                   name="name"
                   required
                   className="min-h-11"
-                  defaultValue={editGroup.name}
+                  defaultValue={editClub.name}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mg-edit-mentor">Mentor</Label>
-                <select
-                  id="mg-edit-mentor"
-                  name="mentorId"
-                  required
-                  className="min-h-11 w-full rounded-xl border bg-background px-3"
-                  defaultValue={editGroup.mentor.id}
-                >
-                  {staff.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.name ?? person.email} ({person.role})
-                    </option>
-                  ))}
-                </select>
+                <Label>Advisors (1–3)</Label>
+                {advisorCheckboxList(
+                  new Set(editClub.advisors.map((row) => row.id)),
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Students</Label>
                 {studentCheckboxList(
-                  new Set(editGroup.students.map((row) => row.id)),
+                  new Set(editClub.students.map((row) => row.id)),
                 )}
               </div>
               <DialogFooter>
@@ -461,6 +471,13 @@ export function MentorGroupsPanel({
           )}
         </DialogContent>
       </Dialog>
+
+      <ImportClubsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        sessionId={sessionId}
+        onImported={() => void loadForSession(sessionId)}
+      />
     </Card>
   );
 }

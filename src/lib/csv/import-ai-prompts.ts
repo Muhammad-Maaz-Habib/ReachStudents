@@ -83,6 +83,65 @@ Rules:
   ambiguous identity, and any fields left blank because they were unclear.
 - Output the result as a downloadable CSV file.`;
 
+export const MENTOR_GROUP_CSV_AI_PROMPT = `I have a spreadsheet of summer camp/conference mentor groups that I need
+reformatted into a specific CSV format for import into an app called Waypoint.
+Please read the attached file and convert it into a CSV with exactly these
+column headers, in this order:
+
+name, mentor_email
+
+Rules:
+- name and mentor_email are required. Skip any row missing either, and tell me
+  which rows you skipped and why.
+- name is the mentor group / cohort label (e.g. "Mentor Group A", "Cabin Blue
+  Mentors"). Keep names concise.
+- mentor_email must be the email of an existing staff account in Waypoint.
+  If the source has a mentor name but no email, leave that row blank for email
+  and flag it so I can fill it in manually — do not invent emails.
+- Do not include student roster columns. Student assignment is handled
+  separately via the roster CSV mentor_group column.
+- After reformatting, give me a summary: total rows processed, rows skipped,
+  and the full list of unique group names and mentor emails found.
+- Output the result as a downloadable CSV file.`;
+
+export const CLUB_CSV_AI_PROMPT = `I have a spreadsheet of summer camp/conference clubs that I need reformatted
+into a specific CSV format for import into an app called Waypoint. Please read
+the attached file and convert it into a CSV with exactly these column headers,
+in this order:
+
+name, advisor_emails
+
+Rules:
+- name and advisor_emails are required. Skip any row missing either.
+- name is the club label (e.g. Robotics, Debate, Yearbook).
+- advisor_emails lists 1–3 staff emails separated by semicolons (preferred) or
+  commas. Do not invent emails — if advisors are only named without emails,
+  leave that row blank for advisor_emails and flag it.
+- Do not include student roster columns; membership is managed separately.
+- After reformatting, summarize rows processed, skipped rows, and unique club
+  names / advisor emails found.
+- Output the result as a downloadable CSV file.`;
+
+export const EXCURSION_CSV_AI_PROMPT = `I have a spreadsheet of summer camp/conference off-site excursions that I need
+reformatted into a specific CSV format for import into an app called Waypoint.
+Please read the attached file and convert it into a CSV with exactly these column
+headers, in this order:
+
+name, destination, start_date, start_time, duration_minutes, capacity, notes
+
+Rules:
+- name, start_date, start_time, and duration_minutes are required. Skip rows
+  missing any of those.
+- name is the trip label (e.g. River hike, Museum day).
+- destination is optional (place / venue name).
+- start_date must be YYYY-MM-DD. start_time should be 24-hour HH:MM (e.g. 14:00)
+  or 12-hour like 2:00 PM.
+- duration_minutes must be an integer between 15 and 1440 (24 hours).
+- capacity and notes are optional.
+- After reformatting, summarize rows processed, skipped rows, and unique trip
+  names found.
+- Output the result as a downloadable CSV file.`;
+
 export const SCHEDULE_CSV_AI_PROMPT = `I have a spreadsheet of summer camp/conference activities that I need reformatted
 into a specific CSV format for import into an app called Waypoint. Please read
 the attached file and convert it into a CSV with exactly these column headers,

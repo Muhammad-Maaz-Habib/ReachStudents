@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const tripLocationCheckInSchema = z.object({
   studentId: z.string().min(1),
+  excursionId: z.string().min(1).optional(),
   tripLabel: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
